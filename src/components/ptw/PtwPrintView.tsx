@@ -1,7 +1,7 @@
 import React from 'react';
 import { Printer, X, Shield, CheckSquare, Square, AlertTriangle } from 'lucide-react';
 import { PtwPermit } from '../../types/index.ts';
-import { PERMIT_TYPE_CONFIG } from '../../config/ptwChecklists.ts';
+import { PERMIT_TYPE_CONFIG, calculatePermitDurationHours } from '../../config/ptwChecklists.ts';
 
 interface PtwPrintViewProps {
   permit: PtwPermit;
@@ -122,9 +122,12 @@ export const PtwPrintView: React.FC<PtwPrintViewProps> = ({ permit, onClose }) =
                 <span className="font-semibold text-slate-900">{permit.issueDate}</span>
               </div>
               <div>
-                <span className="font-bold text-slate-600 block text-[10px] uppercase">Validity Period:</span>
-                <span className="font-semibold text-slate-900 font-mono text-[11px]">
+                <span className="font-bold text-slate-600 block text-[10px] uppercase">Validity Period (Max 12h):</span>
+                <span className="font-semibold text-slate-900 font-mono text-[11px] block">
                   {permit.validFrom} to {permit.validTo}
+                </span>
+                <span className="text-[9px] text-slate-600 font-bold block mt-0.5">
+                  Duration: {calculatePermitDurationHours(permit.validFrom, permit.validTo)} Hours
                 </span>
               </div>
             </div>
@@ -192,7 +195,7 @@ export const PtwPrintView: React.FC<PtwPrintViewProps> = ({ permit, onClose }) =
             <table className="w-full text-[10px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-200 border-b border-slate-900 font-bold">
-                  <th className="p-1.5 w-12 text-center border-r border-slate-300">Item</th>
+                  <th className="p-1.5 w-14 text-center border-r border-slate-300">Item</th>
                   <th className="p-1.5 border-r border-slate-300">Safety Requirement / Verification Check</th>
                   <th className="p-1.5 w-16 text-center border-r border-slate-300">Status</th>
                   <th className="p-1.5 w-48">Comments / Specific Control Notes</th>
@@ -200,31 +203,66 @@ export const PtwPrintView: React.FC<PtwPrintViewProps> = ({ permit, onClose }) =
               </thead>
               <tbody className="divide-y divide-slate-300">
                 {permit.checklists && permit.checklists.length > 0 ? (
-                  permit.checklists.map((chk, idx) => (
-                    <tr key={chk.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                      <td className="p-1 text-center font-mono font-bold text-slate-600 border-r border-slate-300">
-                        {chk.id}
-                      </td>
-                      <td className="p-1 font-medium text-slate-900 border-r border-slate-300">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase mr-1">[{chk.category}]</span>
-                        {chk.label}
-                      </td>
-                      <td className="p-1 text-center font-bold border-r border-slate-300">
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] ${
-                            chk.status === 'Yes'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-400'
-                              : chk.status === 'N/A'
-                              ? 'bg-slate-100 text-slate-600 border border-slate-300'
-                              : 'bg-rose-100 text-rose-800 border border-rose-400'
-                          }`}
-                        >
-                          {chk.status}
-                        </span>
-                      </td>
-                      <td className="p-1 text-slate-700 italic">{chk.notes || '—'}</td>
-                    </tr>
-                  ))
+                  (() => {
+                    const categoryTitles: Record<string, string> = {
+                      General: 'General Pre-Work Safety Precautions (Applicable to All Permits)',
+                      CW: 'Cold Work Precautions (CW)',
+                      'Cold Work': 'Cold Work Precautions (CW)',
+                      HW: 'Hot Work Precautions & Spark Containment (HW)',
+                      'Hot Work': 'Hot Work Precautions & Spark Containment (HW)',
+                      CSE: 'Confined Space Entry Precautions (CSE)',
+                      'Confined Space Entry': 'Confined Space Entry Precautions (CSE)',
+                      LA: 'Lifting Activity & Rigging Precautions (LA)',
+                      'Lifting Activity': 'Lifting Activity & Rigging Precautions (LA)',
+                      WAH: 'Work at Height & Fall Prevention Precautions (WAH)',
+                      'Work at Height': 'Work at Height & Fall Prevention Precautions (WAH)',
+                    };
+
+                    const cats = Array.from(new Set(permit.checklists.map((c) => c.category))) as string[];
+                    const orderedCats = ['General', ...cats.filter((c) => c !== 'General')];
+
+                    return orderedCats.map((cat) => {
+                      const items = permit.checklists.filter((c) => c.category === cat);
+                      if (items.length === 0) return null;
+
+                      return (
+                        <React.Fragment key={cat}>
+                          <tr className="bg-slate-200/80 font-bold border-y border-slate-400">
+                            <td colSpan={4} className="py-1 px-2 text-[10px] uppercase text-slate-800 tracking-wider">
+                              ▸ {categoryTitles[cat] || cat} ({items.length} checks)
+                            </td>
+                          </tr>
+                          {items.map((chk, idx) => (
+                            <tr key={chk.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="p-1 text-center font-mono font-bold text-slate-600 border-r border-slate-300">
+                                {chk.id}
+                              </td>
+                              <td className="p-1 font-medium text-slate-900 border-r border-slate-300">
+                                {chk.label}
+                                {chk.isMandatory && (
+                                  <span className="text-rose-700 ml-1 font-bold text-[9px]">*Mandatory</span>
+                                )}
+                              </td>
+                              <td className="p-1 text-center font-bold border-r border-slate-300">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                    chk.status === 'Yes'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-400'
+                                      : chk.status === 'N/A'
+                                      ? 'bg-slate-100 text-slate-600 border border-slate-300'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-400'
+                                  }`}
+                                >
+                                  {chk.status}
+                                </span>
+                              </td>
+                              <td className="p-1 text-slate-700 italic">{chk.notes || '—'}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      );
+                    });
+                  })()
                 ) : (
                   <tr>
                     <td colSpan={4} className="p-2 text-center text-slate-500 italic">
@@ -250,12 +288,12 @@ export const PtwPrintView: React.FC<PtwPrintViewProps> = ({ permit, onClose }) =
             )}
           </div>
 
-          {/* Section 3: Atmospheric Gas Testing (If CSE / Hot Work) */}
-          {(permit.permitTypes.includes('Hot Work') || permit.permitTypes.includes('Confined Space Entry')) && (
+          {/* Section 3: Atmospheric Gas Testing (strictly Confined Space Entry) */}
+          {permit.permitTypes.includes('Confined Space Entry') && (
             <div className="border-2 border-slate-900 mb-4">
               <div className="bg-slate-800 text-white font-bold px-3 py-1 uppercase text-[11px] flex justify-between">
                 <span>Section 3: Atmospheric Gas Testing Record</span>
-                <span className="text-[10px] font-normal">Mandatory for Hot Work & Confined Space Entry</span>
+                <span className="text-[10px] font-normal">Mandatory for Confined Space Entry</span>
               </div>
               <div className="p-3">
                 <div className="grid grid-cols-4 gap-2 text-center mb-2">

@@ -21,7 +21,7 @@ export const PERMIT_TYPE_CONFIG: Record<
     borderColor: 'border-sky-500/30',
     requiresGasTest: false,
     requiresIsolation: false,
-    description: 'General maintenance, piping, cleaning, civil or mechanical work with no heat/spark generation.',
+    description: 'General maintenance, piping, cleaning, civil or mechanical work without heat or spark generation.',
   },
   'Hot Work': {
     code: 'HW',
@@ -29,9 +29,9 @@ export const PERMIT_TYPE_CONFIG: Record<
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/10',
     borderColor: 'border-amber-500/30',
-    requiresGasTest: true,
+    requiresGasTest: false, // Per PCL HSE specification, dedicated Gas Testing Record page is exclusive to Confined Space Entry
     requiresIsolation: true,
-    description: 'Welding, torch cutting, brazing, grinding, or activities generating sparks, open flames, or heat.',
+    description: 'Welding, torch cutting, brazing, grinding, open flames, sparks, or heat-generating activities.',
   },
   'Confined Space Entry': {
     code: 'CSE',
@@ -39,7 +39,7 @@ export const PERMIT_TYPE_CONFIG: Record<
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/30',
-    requiresGasTest: true,
+    requiresGasTest: true, // Gas Testing Record page appears ONLY when CSE is selected
     requiresIsolation: true,
     description: 'Entry into tanks, silos, vessels, ducts, cyclones, pits, or enclosed spaces with restricted access.',
   },
@@ -51,7 +51,7 @@ export const PERMIT_TYPE_CONFIG: Record<
     borderColor: 'border-indigo-500/30',
     requiresGasTest: false,
     requiresIsolation: false,
-    description: 'Crane operations, mobile cranes, chain blocks, forklift heavy rigging, or critical tandem lifts.',
+    description: 'Crane operations, mobile cranes, chain blocks, heavy rigging, or critical tandem lifts.',
   },
   'Work at Height': {
     code: 'WAH',
@@ -61,305 +61,303 @@ export const PERMIT_TYPE_CONFIG: Record<
     borderColor: 'border-emerald-500/30',
     requiresGasTest: false,
     requiresIsolation: false,
-    description: 'Elevated work above 1.8 meters (6 ft), scaffolding, MEWPs, roofs, or suspended baskets.',
+    description: 'Work above 1.8 metres (6 feet), scaffolding, MEWPs, roofs, or suspended baskets.',
   },
 };
 
-// 1. General Pre-Work Safety Verification (Always included for all permits)
+// ----------------------------------------------------------------------------------------
+// 4.1 General Safety Checks (Applicable to all jobs)
+// ----------------------------------------------------------------------------------------
 export const GENERAL_PRE_WORK_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'GEN-01',
-    category: 'General Pre-Work Verification',
-    label: 'Work area inspected and cleared of unnecessary personnel & operational hazards',
+    category: 'General Safety Checks',
+    label: 'Work scope, plant area, and specific work location verified on site',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'GEN-02',
-    category: 'General Pre-Work Verification',
-    label: 'Risk Assessment / Job Safety Analysis (JSA) reviewed and communicated with work crew',
+    category: 'General Safety Checks',
+    label: 'JSA / Risk Assessment reviewed and control measures communicated to crew',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'GEN-03',
-    category: 'General Pre-Work Verification',
-    label: 'Daily Tool Box Talk (TBT) conducted and attendance recorded',
+    category: 'General Safety Checks',
+    label: 'Toolbox Talk (TBT) conducted with the work crew and attendance recorded',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'GEN-04',
-    category: 'General Pre-Work Verification',
-    label: 'Personnel are medically fit, qualified, competent, and inducted for the task',
+    category: 'General Safety Checks',
+    label: 'Workers are competent, authorized, medically fit, and task-briefed',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'GEN-05',
-    category: 'General Pre-Work Verification',
-    label: 'Mandatory standard PPE inspected and worn (Safety Helmet, Glasses, High-Vis, Safety Shoes)',
+    category: 'General Safety Checks',
+    label: 'Required PPE identified, inspected, and made available (Helmet, Safety Shoes, Glasses, Hi-Vis)',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'GEN-06',
-    category: 'General Pre-Work Verification',
-    label: 'Access and egress routes are clear, illuminated, stable, and unobstructed',
+    category: 'General Safety Checks',
+    label: 'Work area inspected and safe, illuminated, unobstructed access and egress maintained',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'GEN-07',
-    category: 'General Pre-Work Verification',
-    label: 'Hand and power tools inspected, in sound condition, and properly tagged',
+    category: 'General Safety Checks',
+    label: 'Tools and equipment inspected, undamaged, calibrated, and suitable for the task',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'GEN-08',
-    category: 'General Pre-Work Verification',
-    label: 'Work perimeter barricaded with warning signage displayed ("Authorized Entry Only")',
+    category: 'General Safety Checks',
+    label: 'Emergency arrangements, muster points, eyewash/showers, and communication established',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'GEN-09',
-    category: 'General Pre-Work Verification',
-    label: 'Housekeeping maintained, waste collection containers provided on site',
-    status: 'No',
-  },
-  {
-    id: 'GEN-10',
-    category: 'General Pre-Work Verification',
-    label: 'Emergency arrangements verified (nearest emergency muster point, eyewash/shower, radio/phone)',
+    category: 'General Safety Checks',
+    label: 'Housekeeping and barricading requirements addressed with warning signage posted',
     status: 'No',
     isMandatory: true,
   },
 ];
 
-// 2. Cold Work Checks
+// ----------------------------------------------------------------------------------------
+// 4.2 Permit-Specific Checklists
+// ----------------------------------------------------------------------------------------
+
+// CW — Cold Work
 export const COLD_WORK_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'CW-01',
     category: 'Cold Work',
-    label: 'Non-sparking hand tools or explosion-proof electric tools provided where required',
+    label: 'Cold-work-specific precautions reviewed; confirmed no open flame or spark-generating tools in use',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'CW-02',
     category: 'Cold Work',
-    label: 'Machine guards, covers, and interlocks identified and properly secured',
+    label: 'Applicable maintenance, mechanical, piping, or civil task controls verified and secured',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'CW-03',
     category: 'Cold Work',
-    label: 'Adjacent piping, instrumentation lines, and cable trays shielded from physical impact',
+    label: 'Pressurized process, pneumatic, or hydraulic lines depressurized, vented, and drained',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'CW-04',
     category: 'Cold Work',
-    label: 'Pressurized pneumatic, hydraulic, or process lines depressurized, drained, and depressor tags hung',
+    label: 'Adjacent piping, instrumentation lines, and cable trays shielded from physical impact',
     status: 'No',
+    isMandatory: false,
   },
   {
     id: 'CW-05',
     category: 'Cold Work',
-    label: 'Containment trays or absorbent pads positioned for potential oil/chemical leaks or flushing',
+    label: 'Containment trays or absorbent pads positioned for potential oil, lube, or chemical leaks',
     status: 'No',
+    isMandatory: false,
   },
 ];
 
-// 3. Hot Work Checks
+// HW — Hot Work
 export const HOT_WORK_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'HW-01',
     category: 'Hot Work',
-    label: 'Dedicated, trained Fire Watch appointed with air horn / alarm whistle stationed continuously',
+    label: 'Hot work authorized; surrounding area inspected within 10 metres (35 ft) radius',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'HW-02',
     category: 'Hot Work',
-    label: 'Combustible and flammable materials cleared or wet-down within 10 meters (35 ft) radius',
+    label: 'Combustible and flammable materials removed or protected with fire-resistant blankets / tarpaulins',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'HW-03',
     category: 'Hot Work',
-    label: 'Fire-resistant containment blankets / fire tarpaulins rigged to capture falling sparks/slag',
+    label: 'Certified, inspected portable fire extinguishers (DCP/CO2) stationed directly adjacent to work',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'HW-04',
     category: 'Hot Work',
-    label: 'Certified, inspected portable fire extinguishers (DCP & CO2) stationed directly adjacent to work',
+    label: 'Dedicated, trained Fire Watch appointed with alarm horn stationed continuously during work',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'HW-05',
     category: 'Hot Work',
-    label: 'Gas test conducted for flammable / explosive vapors (<1% LEL verified before hot work begins)',
+    label: 'Welding, cutting, grinding, and spark-containment precautions verified (leads, torch, flashback arrestors)',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'HW-06',
     category: 'Hot Work',
-    label: 'Welding machine grounded directly to workpiece; leads, torch, and ground clamp in prime condition',
+    label: 'Spark containment blankets rigged to prevent sparks or slag dropping to lower plant elevations',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'HW-07',
     category: 'Hot Work',
-    label: 'Gas cutting cylinders secured upright on trolley with flash-back arrestors fitted on regulator & torch',
-    status: 'No',
-  },
-  {
-    id: 'HW-08',
-    category: 'Hot Work',
-    label: 'Post-work fire watch commitment agreed: site monitored for minimum 30-60 mins after hot work stops',
+    label: 'Post-work fire watch commitment agreed (minimum 30–60 minutes continuous monitoring after hot work stops)',
     status: 'No',
     isMandatory: true,
   },
 ];
 
-// 4. Confined Space Entry Checks
+// CSE — Confined Space Entry
 export const CONFINED_SPACE_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'CSE-01',
     category: 'Confined Space Entry',
-    label: 'Atmospheric gas testing verified & recorded: O2 (19.5-23.5%), LEL (<10%), CO (<25ppm), H2S (<10ppm)',
+    label: 'Confined space entry authorized; space inspected, verified clean, and entry conditions verified',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'CSE-02',
     category: 'Confined Space Entry',
-    label: 'Standby Person / Hole Watch continuously stationed at entrance with calibrated gas meter & radio',
+    label: 'Applicable positive mechanical/electrical isolation, blinding, and zero-energy confirmed (LOTO)',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'CSE-03',
     category: 'Confined Space Entry',
-    label: 'Forced mechanical ventilation / air blower operating and duct routed to floor/dead zones',
+    label: 'Atmospheric gas testing verified on Gas Testing Record page: O2 (19.5-23.5%), LEL (<10%), CO (<25ppm), H2S (<10ppm)',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'CSE-04',
     category: 'Confined Space Entry',
-    label: 'Entry & Exit Man-count log sheet mounted at manhole with maximum permitted inside count posted',
+    label: 'Continuous forced mechanical ventilation operational; duct routed to floor and stagnant dead zones',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'CSE-05',
     category: 'Confined Space Entry',
-    label: 'Full-body recovery harness donned with lifeline attached to rated rescue tripod/winch',
-    status: 'No',
-  },
-  {
-    id: 'CSE-06',
-    category: 'Confined Space Entry',
-    label: 'Emergency Escape Breathing Apparatus (EEBD) or rescue self-rescuer positioned at entrance',
-    status: 'No',
-  },
-  {
-    id: 'CSE-07',
-    category: 'Confined Space Entry',
-    label: 'All positive energy and piping isolations locked, blinded, tagged, and zero energy confirmed',
+    label: 'Dedicated Standby Person / Hole Watch stationed at entrance with entry/exit log board and radio',
     status: 'No',
     isMandatory: true,
   },
   {
-    id: 'CSE-08',
+    id: 'CSE-06',
+    category: 'Confined Space Entry',
+    label: 'Rescue arrangements staged: rescue tripod, retrieval winch, full-body harness, lifeline, and EEBD',
+    status: 'No',
+    isMandatory: true,
+  },
+  {
+    id: 'CSE-07',
     category: 'Confined Space Entry',
     label: 'Intrinsically safe / 24V low-voltage explosion-proof lighting and portable tools used inside space',
     status: 'No',
+    isMandatory: false,
   },
 ];
 
-// 5. Lifting Activity Checks
+// LA — Lifting Activity
 export const LIFTING_ACTIVITY_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'LA-01',
     category: 'Lifting Activity',
-    label: 'Crane, hoist, web slings, shackles & wire ropes have valid third-party inspection color coding',
+    label: 'Lifting plan and lift-risk assessment prepared, reviewed, and verified within safe working load (SWL)',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'LA-02',
     category: 'Lifting Activity',
-    label: 'Crane operator and dedicated Rigger / Banksman are third-party certified and wearing high-vis vests',
+    label: 'Crane, lifting appliances, wire ropes, shackles, and rigging gear inspected with valid color-code certification',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'LA-03',
     category: 'Lifting Activity',
-    label: 'Lifting plan prepared, reviewed with team, and verified within safe working load (SWL) chart limit',
+    label: 'Safe working load (SWL) and equipment capacity verified against heaviest anticipated load',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'LA-04',
     category: 'Lifting Activity',
-    label: 'Crane outriggers 100% fully extended on certified timber/steel load-spreading pads on firm ground',
+    label: 'Ground stability verified; crane outriggers 100% extended on load-spreading pads; swing radius barricaded',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'LA-05',
     category: 'Lifting Activity',
-    label: '360-degree crane counterweight swing radius & entire drop zone barricaded with red danger tape',
+    label: 'Competent, certified crane operator, qualified rigger, and dedicated signalman/banksman appointed',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'LA-06',
     category: 'Lifting Activity',
-    label: 'Tag lines (minimum 2) attached to suspended load to guide movement without hand touch',
+    label: 'Tag lines (minimum 2) attached to suspended load; overhead power lines checked (>5m clearance)',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'LA-07',
     category: 'Lifting Activity',
-    label: 'Overhead power cables and overhead hazards checked; minimum 5m safe clearance maintained',
+    label: 'Wind speed checked with anemometer (must be below 20 knots / 10 m/s manufacturer limits)',
     status: 'No',
-  },
-  {
-    id: 'LA-08',
-    category: 'Lifting Activity',
-    label: 'Wind speed checked with anemometer (must be below 20-25 knots / 10 m/s manufacturer limits)',
-    status: 'No',
+    isMandatory: false,
   },
 ];
 
-// 6. Work at Height Checks
+// WAH — Work at Height
 export const WORK_AT_HEIGHT_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'WAH-01',
     category: 'Work at Height',
-    label: 'Full-body safety harness with dual shock-absorbing lanyards inspected and 100% tie-off enforced',
+    label: 'Suitable access equipment provided; scaffolding inspected with valid GREEN Scafftag or certified MEWP',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'WAH-02',
     category: 'Work at Height',
-    label: 'Certified anchorage point (>5,000 lbs / 22 kN rated) or horizontal lifeline verified overhead',
+    label: 'Fall prevention and fall-arrest measures enforced; full-body harness with dual shock-absorbing lanyards worn',
     status: 'No',
     isMandatory: true,
   },
   {
     id: 'WAH-03',
     category: 'Work at Height',
-    label: 'Scaffolding inspected with current valid GREEN Scafftag displayed and signed by competent inspector',
+    label: 'Certified anchorage point (>5,000 lbs / 22 kN rated) or horizontal lifeline verified overhead for 100% tie-off',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'WAH-04',
@@ -371,35 +369,29 @@ export const WORK_AT_HEIGHT_CHECKLIST: PtwChecklistItem[] = [
   {
     id: 'WAH-05',
     category: 'Work at Height',
-    label: 'Safety net or catch fan installed below elevated platform to catch falling objects or debris',
+    label: 'Dropped-object prevention implemented: tool tethers/pouches used; safety nets/toe-boards in place',
     status: 'No',
+    isMandatory: true,
   },
   {
     id: 'WAH-06',
-    category: 'Work at Height',
-    label: 'Tool lanyards, pouches, and tethering cords used for all hand tools, radios, and loose equipment',
-    status: 'No',
-  },
-  {
-    id: 'WAH-07',
     category: 'Work at Height',
     label: 'Ground exclusion drop-zone directly below elevated work demarcated with warning signs & barricade',
     status: 'No',
     isMandatory: true,
   },
   {
-    id: 'WAH-08',
+    id: 'WAH-07',
     category: 'Work at Height',
-    label: 'Weather conditions, wind gusts, and lightning risk evaluated; work prohibited in wet/stormy conditions',
+    label: 'Weather conditions, wind gusts, and lightning risk evaluated; emergency rescue plan established',
     status: 'No',
+    isMandatory: false,
   },
 ];
 
-/**
- * Dynamically builds or updates the unified checklist based on the user's selected permit types.
- * Retains any answers/notes the user has already entered for existing items.
- * Does NOT auto-mark safety checks as completed.
- */
+// ----------------------------------------------------------------------------------------
+// 4.3 Dynamic Checklist Generator (Strictly filtered by selected types)
+// ----------------------------------------------------------------------------------------
 export function generateChecklistForPermitTypes(
   selectedTypes: PermitType[],
   existingChecklist?: PtwChecklistItem[]
@@ -433,10 +425,10 @@ export function generateChecklistForPermitTypes(
     }
   };
 
-  // 1. General Pre-Work items always included
+  // 1. General Safety Checks always included for all permits
   GENERAL_PRE_WORK_CHECKLIST.forEach(addItem);
 
-  // 2. Add category-specific checklists according to selected permit types
+  // 2. Add category-specific checklists strictly according to selected permit types
   if (selectedTypes.includes('Cold Work')) {
     COLD_WORK_CHECKLIST.forEach(addItem);
   }
@@ -464,6 +456,150 @@ export function generateChecklistForPermitTypes(
   }
 
   return masterList;
+}
+
+// ----------------------------------------------------------------------------------------
+// 3. Date, Time and 12-Hour Permit Validity Validation Helpers
+// ----------------------------------------------------------------------------------------
+
+export interface PtwValidityResult {
+  valid: boolean;
+  durationHours: number;
+  error?: string;
+}
+
+/**
+ * Parses a date-time string in "YYYY-MM-DD HH:mm" or ISO format into a Date object.
+ */
+export function parsePtwDateTime(dtStr: string): Date | null {
+  if (!dtStr) return null;
+  const trimmed = dtStr.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{1,2}):(\d{2})/);
+  if (match) {
+    const [, y, m, d, hh, mm] = match;
+    const year = parseInt(y, 10);
+    const month = parseInt(m, 10) - 1;
+    const day = parseInt(d, 10);
+    const hour = parseInt(hh, 10);
+    const minute = parseInt(mm, 10);
+    const date = new Date(year, month, day, hour, minute, 0, 0);
+    if (!isNaN(date.getTime())) return date;
+  }
+  const fallback = new Date(trimmed);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/**
+ * Formats a Date object to "YYYY-MM-DD HH:mm".
+ */
+export function formatPtwDateTime(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d} ${hh}:${mm}`;
+}
+
+/**
+ * Calculates duration in hours between validFrom and validTo.
+ * Correctly accounts for permits crossing midnight.
+ */
+export function calculatePermitDurationHours(validFromStr?: string, validToStr?: string): number {
+  if (!validFromStr || !validToStr) return 0;
+  const from = parsePtwDateTime(validFromStr);
+  const to = parsePtwDateTime(validToStr);
+  if (!from || !to) return 0;
+  const diffMs = to.getTime() - from.getTime();
+  if (diffMs <= 0) return 0;
+  return Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+}
+
+/**
+ * Returns the maximum allowable Valid To timestamp (exactly 12 hours after Valid From).
+ */
+export function getMaxValidTo(validFromStr: string): string {
+  const from = parsePtwDateTime(validFromStr);
+  if (!from) return '';
+  const maxTo = new Date(from.getTime() + 12 * 60 * 60 * 1000);
+  return formatPtwDateTime(maxTo);
+}
+
+/**
+ * Validates that:
+ * 1. Both validFrom and validTo are valid dates and times.
+ * 2. validTo is strictly later than validFrom.
+ * 3. The duration does not exceed 12 hours (maximum allowable validity).
+ * 4. Permits crossing midnight are correctly calculated.
+ * 5. No shift-end restrictions are applied.
+ */
+export function validatePtwValidity(validFromStr?: string, validToStr?: string): PtwValidityResult {
+  if (!validFromStr || !validFromStr.trim()) {
+    return { valid: false, durationHours: 0, error: 'Valid From date and time are required.' };
+  }
+  if (!validToStr || !validToStr.trim()) {
+    return { valid: false, durationHours: 0, error: 'Valid To date and time are required.' };
+  }
+
+  const from = parsePtwDateTime(validFromStr);
+  const to = parsePtwDateTime(validToStr);
+
+  if (!from) {
+    return { valid: false, durationHours: 0, error: 'Invalid Valid From format. Expected "YYYY-MM-DD HH:mm".' };
+  }
+  if (!to) {
+    return { valid: false, durationHours: 0, error: 'Invalid Valid To format. Expected "YYYY-MM-DD HH:mm".' };
+  }
+
+  const fromMs = from.getTime();
+  const toMs = to.getTime();
+
+  if (toMs <= fromMs) {
+    return {
+      valid: false,
+      durationHours: 0,
+      error: 'Valid To must be strictly later than Valid From.',
+    };
+  }
+
+  const diffMs = toMs - fromMs;
+  const durationHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+
+  if (durationHours > 12.0) {
+    return {
+      valid: false,
+      durationHours,
+      error: `Permit validity duration is ${durationHours} hours, which exceeds the maximum allowable limit of 12 hours.`,
+    };
+  }
+
+  return {
+    valid: true,
+    durationHours,
+  };
+}
+
+/**
+ * Validates daily extension validity (Day 2 to 7) ensuring it does not exceed 12 hours.
+ */
+export function validateExtensionValidity(extensionDate: string, startTime: string, endTime: string): PtwValidityResult {
+  if (!extensionDate || !startTime || !endTime) {
+    return { valid: false, durationHours: 0, error: 'Extension Date, Start Time, and End Time are required.' };
+  }
+
+  const fromStr = `${extensionDate} ${startTime}`;
+  let toStr = `${extensionDate} ${endTime}`;
+
+  // If endTime is less than or equal to startTime, extension crosses midnight into the next day
+  const from = parsePtwDateTime(fromStr);
+  let to = parsePtwDateTime(toStr);
+
+  if (from && to && to.getTime() <= from.getTime()) {
+    const nextDay = new Date(to.getTime() + 24 * 60 * 60 * 1000);
+    toStr = formatPtwDateTime(nextDay);
+  }
+
+  return validatePtwValidity(fromStr, toStr);
 }
 
 export const DEFAULT_ISOLATIONS: PtwIsolations = {

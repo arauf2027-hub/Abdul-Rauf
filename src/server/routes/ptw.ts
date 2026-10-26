@@ -5,7 +5,13 @@ import { notifications, ptwExtensions, ptwPermits, users } from '../../db/schema
 import { AuthRequest, requireAuth } from '../../middleware/auth.ts';
 import { generateBusinessId } from '../../services/sequence.ts';
 import { logAuditEvent } from '../../services/audit.ts';
-import { generateChecklistForPermitTypes, DEFAULT_ISOLATIONS, DEFAULT_GAS_TESTING } from '../../config/ptwChecklists.ts';
+import {
+  generateChecklistForPermitTypes,
+  validatePtwValidity,
+  validateExtensionValidity,
+  DEFAULT_ISOLATIONS,
+  DEFAULT_GAS_TESTING,
+} from '../../config/ptwChecklists.ts';
 
 const router = Router();
 
@@ -247,11 +253,38 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
 
     const permitNumber = await generateBusinessId('PTW', 'ptw_permits', 'permit_number');
     const today = new Date().toISOString().split('T')[0];
+    const validFrom = body.validFrom || `${today} 08:00`;
+    const validTo = body.validTo || `${today} 18:00`;
 
-    // Build dynamic checklist based on chosen types
+    // Enforce strict 12-hour maximum validity duration
+    const validityResult = validatePtwValidity(validFrom, validTo);
+    if (!validityResult.valid) {
+      return res.status(400).json({ error: validityResult.error });
+    }
+
+    // Build dynamic checklist based strictly on chosen types
     const checklists = generateChecklistForPermitTypes(body.permitTypes, body.checklists);
 
     const initialStatus = body.status === 'Under Review' ? 'Under Review' : 'Draft';
+
+    if (initialStatus === 'Under Review') {
+      const failedMandatory = checklists.filter((c) => c.isMandatory && c.status === 'No');
+      if (failedMandatory.length > 0) {
+        const checkListDetails = failedMandatory.map((f) => `[${f.id}] ${f.label}`).join(', ');
+        return res.status(400).json({
+          error: `Cannot submit permit for review: ${failedMandatory.length} mandatory safety check(s) are incomplete or unverified (marked 'No'): ${checkListDetails}`,
+        });
+      }
+
+      if (body.permitTypes.includes('Confined Space Entry')) {
+        const gt = body.gasTesting || {};
+        if (!gt.testedBy || !gt.oxygen || gt.result === 'Unsafe') {
+          return res.status(400).json({
+            error: 'Cannot submit Confined Space Entry permit: Atmospheric gas testing record must be complete and certified safe to enter.',
+          });
+        }
+      }
+    }
 
     const [newPermit] = await db
       .insert(ptwPermits)
@@ -270,8 +303,8 @@ router.post('/', requireAuth, async (req: AuthRequest, res) => {
         workersCount: Number(body.workersCount) || 1,
         workDescription: body.workDescription,
         issueDate: body.issueDate || today,
-        validFrom: body.validFrom || `${today} 08:00`,
-        validTo: body.validTo || `${today} 18:00`,
+        validFrom,
+        validTo,
         jsaReference: body.jsaReference || '',
         tbtConducted: Boolean(body.tbtConducted),
         tbtNotes: body.tbtNotes || '',
@@ -358,6 +391,16 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
       body.checklists !== undefined ? body.checklists : JSON.parse(existing.checklists || '[]')
     );
 
+    const effectiveValidFrom = body.validFrom !== undefined ? body.validFrom : existing.validFrom;
+    const effectiveValidTo = body.validTo !== undefined ? body.validTo : existing.validTo;
+
+    if (body.validFrom !== undefined || body.validTo !== undefined) {
+      const validityResult = validatePtwValidity(effectiveValidFrom, effectiveValidTo);
+      if (!validityResult.valid) {
+        return res.status(400).json({ error: validityResult.error });
+      }
+    }
+
     const [updated] = await db
       .update(ptwPermits)
       .set({
@@ -373,8 +416,8 @@ router.put('/:id', requireAuth, async (req: AuthRequest, res) => {
         workersCount: body.workersCount !== undefined ? Number(body.workersCount) : existing.workersCount,
         workDescription: body.workDescription !== undefined ? body.workDescription : existing.workDescription,
         issueDate: body.issueDate !== undefined ? body.issueDate : existing.issueDate,
-        validFrom: body.validFrom !== undefined ? body.validFrom : existing.validFrom,
-        validTo: body.validTo !== undefined ? body.validTo : existing.validTo,
+        validFrom: effectiveValidFrom,
+        validTo: effectiveValidTo,
         jsaReference: body.jsaReference !== undefined ? body.jsaReference : existing.jsaReference,
         tbtConducted: body.tbtConducted !== undefined ? Boolean(body.tbtConducted) : existing.tbtConducted,
         tbtNotes: body.tbtNotes !== undefined ? body.tbtNotes : existing.tbtNotes,
@@ -422,6 +465,43 @@ router.post('/:id/submit', requireAuth, async (req: AuthRequest, res) => {
       return res.status(404).json({ error: 'Permit not found' });
     }
 
+    // 1. Enforce 12-hour maximum validity
+    const validityResult = validatePtwValidity(existing.validFrom, existing.validTo);
+    if (!validityResult.valid) {
+      return res.status(400).json({ error: validityResult.error });
+    }
+
+    // 2. Validate all active mandatory checklist checks
+    let parsedChecklists: any[] = [];
+    try {
+      parsedChecklists = JSON.parse(existing.checklists || '[]');
+    } catch {}
+    const failedMandatory = parsedChecklists.filter((c) => c.isMandatory && c.status === 'No');
+    if (failedMandatory.length > 0) {
+      const details = failedMandatory.map((f) => `[${f.id}] ${f.label}`).join(', ');
+      return res.status(400).json({
+        error: `Cannot submit permit for review: ${failedMandatory.length} mandatory safety check(s) are incomplete or unverified (marked 'No'): ${details}`,
+      });
+    }
+
+    // 3. Conditional gas testing verification (CSE only)
+    let parsedTypes: string[] = [];
+    try {
+      parsedTypes = JSON.parse(existing.permitTypes || '[]');
+    } catch {}
+
+    if (parsedTypes.includes('Confined Space Entry')) {
+      let gt: any = {};
+      try {
+        gt = JSON.parse(existing.gasTesting || '{}');
+      } catch {}
+      if (!gt.testedBy || !gt.oxygen || gt.result === 'Unsafe') {
+        return res.status(400).json({
+          error: 'Cannot submit Confined Space Entry permit: Atmospheric gas testing record must be complete and certified safe to enter.',
+        });
+      }
+    }
+
     const [updated] = await db
       .update(ptwPermits)
       .set({
@@ -465,6 +545,43 @@ router.post('/:id/approve', requireAuth, async (req: AuthRequest, res) => {
 
     if (!existing) {
       return res.status(404).json({ error: 'Permit not found' });
+    }
+
+    // 1. Enforce 12-hour maximum validity
+    const validityResult = validatePtwValidity(existing.validFrom, existing.validTo);
+    if (!validityResult.valid) {
+      return res.status(400).json({ error: validityResult.error });
+    }
+
+    // 2. Validate all active mandatory checklist checks
+    let parsedChecklists: any[] = [];
+    try {
+      parsedChecklists = JSON.parse(existing.checklists || '[]');
+    } catch {}
+    const failedMandatory = parsedChecklists.filter((c) => c.isMandatory && c.status === 'No');
+    if (failedMandatory.length > 0) {
+      const details = failedMandatory.map((f) => `[${f.id}] ${f.label}`).join(', ');
+      return res.status(400).json({
+        error: `Cannot authorize/approve permit: ${failedMandatory.length} mandatory safety check(s) are incomplete or unverified (marked 'No'): ${details}`,
+      });
+    }
+
+    // 3. Conditional gas testing verification (CSE only)
+    let parsedTypes: string[] = [];
+    try {
+      parsedTypes = JSON.parse(existing.permitTypes || '[]');
+    } catch {}
+
+    if (parsedTypes.includes('Confined Space Entry')) {
+      let gt: any = {};
+      try {
+        gt = JSON.parse(existing.gasTesting || '{}');
+      } catch {}
+      if (!gt.testedBy || !gt.oxygen || gt.result === 'Unsafe') {
+        return res.status(400).json({
+          error: 'Cannot authorize Confined Space Entry permit: Atmospheric gas testing record must be complete and certified safe to enter.',
+        });
+      }
     }
 
     const [updated] = await db
@@ -618,6 +735,12 @@ router.post('/:id/extend', requireAuth, async (req: AuthRequest, res) => {
 
     if (!extensionDate || !startTime || !endTime) {
       return res.status(400).json({ error: 'Extension Date, Start Time, and End Time are required.' });
+    }
+
+    // Enforce 12-hour maximum extension duration rule
+    const extCheck = validateExtensionValidity(extensionDate, startTime, endTime);
+    if (!extCheck.valid) {
+      return res.status(400).json({ error: extCheck.error });
     }
 
     const existing = await db.query.ptwPermits.findFirst({

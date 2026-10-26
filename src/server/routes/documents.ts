@@ -59,7 +59,7 @@ router.get('/', requireAuth, async (req: AuthRequest, res) => {
 });
 
 // POST /api/documents/upload
-router.post('/upload', requireAuth, upload.single('file'), async (req: AuthRequest, res) => {
+router.post('/upload', requireAuth as any, upload.single('file') as any, async (req: AuthRequest, res) => {
   try {
     const user = req.dbUser!;
     const file = req.file;

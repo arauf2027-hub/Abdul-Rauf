@@ -22,7 +22,7 @@ export interface AuthRequest extends Request {
 }
 
 export const requireAuth = async (
-  req: AuthRequest,
+  req: any,
   res: Response,
   next: NextFunction
 ) => {
@@ -67,8 +67,9 @@ export const requireAuth = async (
       req.dbUser = defaultUser[0];
       return next();
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error resolving fallback user:', err);
+    return res.status(500).json({ error: 'Database error in auth fallback', details: err?.message, stack: err?.stack });
   }
 
   return res.status(401).json({ error: 'Unauthorized: Authentication required' });

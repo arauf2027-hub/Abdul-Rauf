@@ -61,6 +61,7 @@ async function startServer() {
     res.json({ status: 'ok', service: 'industrial-ehs', timestamp: new Date().toISOString() });
   });
 
+
   // Project source code zip download endpoint
   app.get('/api/download-project', (req, res) => {
     res.attachment('industrial-ehs-management-system.zip');

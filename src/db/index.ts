@@ -14,6 +14,13 @@ declare global {
 const dataDir = path.resolve(process.cwd(), 'data', 'pgdata');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+} else if (!global._ehsClientInstance) {
+  const pidFile = path.resolve(dataDir, 'postmaster.pid');
+  if (fs.existsSync(pidFile)) {
+    try {
+      fs.unlinkSync(pidFile);
+    } catch {}
+  }
 }
 
 export const client: PGlite = global._ehsClientInstance || new PGlite(dataDir);

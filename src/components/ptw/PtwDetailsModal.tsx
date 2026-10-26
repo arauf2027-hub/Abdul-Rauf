@@ -22,8 +22,13 @@ import {
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { api } from '../../services/api.ts';
-import { PtwPermit, PermitType, PtwChecklistItem } from '../../types/index.ts';
-import { PERMIT_TYPE_CONFIG } from '../../config/ptwChecklists.ts';
+import { PtwPermit } from '../../types/index.ts';
+import {
+  PERMIT_TYPE_CONFIG,
+  calculatePermitDurationHours,
+  validatePtwValidity,
+  validateExtensionValidity,
+} from '../../config/ptwChecklists.ts';
 import { PtwPrintView } from './PtwPrintView.tsx';
 
 interface PtwDetailsModalProps {
@@ -97,6 +102,18 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
 
   // Actions
   const handleSubmitForReview = async () => {
+    const val = validatePtwValidity(permit.validFrom, permit.validTo);
+    if (!val.valid) {
+      toast.error(`Validity Error: ${val.error}`);
+      return;
+    }
+
+    const unverifiedMandatory = permit.checklists?.filter((c) => c.isMandatory && c.status === 'No') || [];
+    if (unverifiedMandatory.length > 0) {
+      toast.error(`Cannot submit permit: ${unverifiedMandatory.length} mandatory safety check(s) are unchecked ("No"). All mandatory checks must be verified ("Yes") or marked ("N/A").`);
+      return;
+    }
+
     setLoadingAction(true);
     try {
       await api.submitPtwForReview(permit.id);
@@ -110,6 +127,18 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
   };
 
   const handleApprove = async () => {
+    const val = validatePtwValidity(permit.validFrom, permit.validTo);
+    if (!val.valid) {
+      toast.error(`Validity Error: ${val.error}`);
+      return;
+    }
+
+    const unverifiedMandatory = permit.checklists?.filter((c) => c.isMandatory && c.status === 'No') || [];
+    if (unverifiedMandatory.length > 0) {
+      toast.error(`Cannot authorize permit: ${unverifiedMandatory.length} mandatory safety check(s) are unchecked ("No"). All mandatory checks must be verified ("Yes") or justified ("N/A").`);
+      return;
+    }
+
     setLoadingAction(true);
     try {
       await api.approvePtwPermit(permit.id, {
@@ -159,6 +188,12 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
   };
 
   const handleExtend = async () => {
+    const extVal = validateExtensionValidity(extDate, extStartTime, extEndTime);
+    if (!extVal.valid) {
+      toast.error(extVal.error || 'Extension validity duration cannot exceed 12 hours.');
+      return;
+    }
+
     setLoadingAction(true);
     try {
       await api.extendPtwPermit(permit.id, {
@@ -222,9 +257,7 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
     }
   };
 
-  const requiresGasTest = permit.permitTypes.some(
-    (t) => PERMIT_TYPE_CONFIG[t]?.requiresGasTest
-  );
+  const requiresGasTest = permit.permitTypes.includes('Confined Space Entry');
 
   return (
     <>
@@ -381,7 +414,7 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
                   </div>
                 </div>
 
-                {/* Supervisor & Validity */}
+                {/* Supervisor & Crew Particulars */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950/60 border border-slate-800 rounded-xl p-4">
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-semibold block">Contractor / In-House</span>
@@ -394,6 +427,33 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-semibold block">Contact Number / Radio</span>
                     <span className="font-semibold text-slate-200 mt-0.5 block">{permit.contactNumber}</span>
+                  </div>
+                </div>
+
+                {/* Issue Date, Time & Permit Validity (Strict Max 12h) */}
+                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Issue Date, Time & Permit Validity (Max 12 Hours)</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      Duration: {calculatePermitDurationHours(permit.validFrom, permit.validTo)} Hours (≤ 12h Max Limit)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-slate-500 text-[10px] uppercase font-semibold block">Issue Date</span>
+                      <span className="font-semibold text-slate-200 mt-0.5 block font-mono">{permit.issueDate}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] uppercase font-semibold block">Valid From (Date & Time)</span>
+                      <span className="font-semibold text-slate-200 mt-0.5 block font-mono">{permit.validFrom}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] uppercase font-semibold block">Valid To (Date & Time)</span>
+                      <span className="font-semibold text-slate-200 mt-0.5 block font-mono">{permit.validTo}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -482,36 +542,82 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/80">
-                      {permit.checklists?.map((chk) => (
-                        <tr key={chk.id} className="hover:bg-slate-900/40">
-                          <td className="py-2 px-3 text-center font-mono font-bold text-slate-400 text-[10px]">
-                            {chk.id}
+                      {permit.checklists && permit.checklists.length > 0 ? (
+                        (() => {
+                          const categoryTitles: Record<string, string> = {
+                            General: 'General Pre-Work Safety Precautions (Applicable to All Permits)',
+                            CW: 'Cold Work Precautions (CW)',
+                            'Cold Work': 'Cold Work Precautions (CW)',
+                            HW: 'Hot Work Precautions & Spark Containment (HW)',
+                            'Hot Work': 'Hot Work Precautions & Spark Containment (HW)',
+                            CSE: 'Confined Space Entry Precautions (CSE)',
+                            'Confined Space Entry': 'Confined Space Entry Precautions (CSE)',
+                            LA: 'Lifting Activity & Rigging Precautions (LA)',
+                            'Lifting Activity': 'Lifting Activity & Rigging Precautions (LA)',
+                            WAH: 'Work at Height & Fall Prevention Precautions (WAH)',
+                            'Work at Height': 'Work at Height & Fall Prevention Precautions (WAH)',
+                          };
+
+                          const cats = Array.from(new Set(permit.checklists.map((c) => c.category))) as string[];
+                          const orderedCats = ['General', ...cats.filter((c) => c !== 'General')];
+
+                          return orderedCats.map((cat) => {
+                            const items = permit.checklists.filter((c) => c.category === cat);
+                            if (items.length === 0) return null;
+                            const catYes = items.filter((c) => c.status === 'Yes').length;
+
+                            return (
+                              <React.Fragment key={cat}>
+                                <tr className="bg-slate-900 border-y border-slate-800">
+                                  <td colSpan={4} className="py-2 px-3 text-[11px] font-bold text-slate-200">
+                                    <div className="flex items-center justify-between">
+                                      <span className="uppercase tracking-wider text-emerald-400 font-bold">
+                                        ▸ {categoryTitles[cat] || cat}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-normal">
+                                        {catYes} of {items.length} verified
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {items.map((chk) => (
+                                  <tr key={chk.id} className="hover:bg-slate-900/40">
+                                    <td className="py-2 px-3 text-center font-mono font-bold text-slate-400 text-[10px]">
+                                      {chk.id}
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <span className="text-slate-200">{chk.label}</span>
+                                      {chk.isMandatory && (
+                                        <span className="text-rose-400 ml-1.5 font-bold text-[10px]">*Mandatory</span>
+                                      )}
+                                    </td>
+                                    <td className="py-2 px-3 text-center">
+                                      <span
+                                        className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                                          chk.status === 'Yes'
+                                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                            : chk.status === 'N/A'
+                                            ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                        }`}
+                                      >
+                                        {chk.status}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-3 text-slate-400 italic">{chk.notes || '—'}</td>
+                                  </tr>
+                                ))}
+                              </React.Fragment>
+                            );
+                          });
+                        })()
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="py-4 text-center text-slate-500 italic">
+                            No checklist items found for this permit.
                           </td>
-                          <td className="py-2 px-3">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase mr-1.5">
-                              [{chk.category}]
-                            </span>
-                            <span className="text-slate-200">{chk.label}</span>
-                            {chk.isMandatory && (
-                              <span className="text-rose-400 ml-1.5 font-bold text-[10px]">*Mandatory</span>
-                            )}
-                          </td>
-                          <td className="py-2 px-3 text-center">
-                            <span
-                              className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                                chk.status === 'Yes'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                  : chk.status === 'N/A'
-                                  ? 'bg-slate-800 text-slate-400 border border-slate-700'
-                                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                              }`}
-                            >
-                              {chk.status}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-slate-400 italic">{chk.notes || '—'}</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1046,6 +1152,31 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
                 />
               </div>
             </div>
+
+            {/* Live Extension Shift Duration & 12h Limit Indicator */}
+            {(() => {
+              const extVal = validateExtensionValidity(extDate, extStartTime, extEndTime);
+              return (
+                <div
+                  className={`p-2 rounded-lg border text-xs flex flex-col gap-1 ${
+                    extVal.valid
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Shift Duration: {extVal.durationHours} hrs</span>
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.2 rounded bg-slate-900 border border-slate-700">
+                      {extVal.valid ? 'Valid (≤ 12h)' : 'Exceeds 12h Limit'}
+                    </span>
+                  </div>
+                  {!extVal.valid && (
+                    <span className="text-[11px] text-rose-300 font-medium">{extVal.error}</span>
+                  )}
+                </div>
+              );
+            })()}
+
             <div>
               <label className="block text-slate-400 text-xs mb-1">Atmospheric Gas Test Re-check</label>
               <input
@@ -1088,9 +1219,9 @@ export const PtwDetailsModal: React.FC<PtwDetailsModalProps> = ({ permit, onClos
               </button>
               <button
                 type="button"
-                disabled={loadingAction}
+                disabled={loadingAction || !validateExtensionValidity(extDate, extStartTime, extEndTime).valid}
                 onClick={handleExtend}
-                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow"
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold shadow"
               >
                 Authorize Extension
               </button>

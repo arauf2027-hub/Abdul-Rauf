@@ -14,6 +14,8 @@ import {
   Lock,
   Gauge,
   UserCheck,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
@@ -22,6 +24,8 @@ import { PermitType, PtwChecklistItem, PtwIsolations, PtwGasTesting } from '../.
 import {
   PERMIT_TYPE_CONFIG,
   generateChecklistForPermitTypes,
+  validatePtwValidity,
+  getMaxValidTo,
   DEFAULT_ISOLATIONS,
   DEFAULT_GAS_TESTING,
 } from '../../config/ptwChecklists.ts';
@@ -52,10 +56,14 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
   const [workersCount, setWorkersCount] = useState<number>(3);
   const [workDescription, setWorkDescription] = useState<string>('');
 
-  // 3. Validity & Risk Verification
+  // 3. Issue Date, Time and Validity (Max 12 Hours)
   const [issueDate, setIssueDate] = useState<string>(today);
-  const [validFrom, setValidFrom] = useState<string>(`${today} 08:00`);
-  const [validTo, setValidTo] = useState<string>(`${today} 18:00`);
+  const [issueTime, setIssueTime] = useState<string>('08:00');
+  const [validFromDate, setValidFromDate] = useState<string>(today);
+  const [validFromTime, setValidFromTime] = useState<string>('08:00');
+  const [validToDate, setValidToDate] = useState<string>(today);
+  const [validToTime, setValidToTime] = useState<string>('18:00');
+
   const [jsaReference, setJsaReference] = useState<string>('JSA-PCL-2026-');
   const [tbtConducted, setTbtConducted] = useState<boolean>(true);
   const [tbtNotes, setTbtNotes] = useState<string>('Briefed crew on site hazards, emergency muster point, and mandatory PPE.');
@@ -80,6 +88,14 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
   const [activeStep, setActiveStep] = useState<'types_details' | 'checklists' | 'isolations' | 'gas_test'>('types_details');
   const [submitting, setSubmitting] = useState(false);
 
+  // Calculated validity strings and duration check
+  const validFrom = `${validFromDate} ${validFromTime}`.trim();
+  const validTo = `${validToDate} ${validToTime}`.trim();
+  const validityResult = validatePtwValidity(validFrom, validTo);
+
+  // Only Confined Space Entry permits show the Gas Testing Record page
+  const requiresGasTest = selectedTypes.includes('Confined Space Entry');
+
   // Handle toggling of permit types
   const handleTogglePermitType = (type: PermitType) => {
     let next: PermitType[];
@@ -93,8 +109,26 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
       next = [...selectedTypes, type];
     }
     setSelectedTypes(next);
+
+    // If CSE is deselected and user was on gas test step, move back to checklists
+    if (!next.includes('Confined Space Entry') && activeStep === 'gas_test') {
+      setActiveStep('checklists');
+    }
+
     // Dynamically rebuild checklist, retaining existing user responses
     setChecklists((prev) => generateChecklistForPermitTypes(next, prev));
+  };
+
+  const handleSetMax12Hours = () => {
+    const maxToStr = getMaxValidTo(validFrom);
+    if (maxToStr) {
+      const parts = maxToStr.split(' ');
+      if (parts.length >= 2) {
+        setValidToDate(parts[0]);
+        setValidToTime(parts[1]);
+        toast.info('Valid To set to maximum 12 hours from Valid From.');
+      }
+    }
   };
 
   const handleChecklistStatusChange = (id: string, status: 'Yes' | 'No' | 'N/A') => {
@@ -131,6 +165,16 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
   };
 
   const handleSavePermit = async (submitForReview: boolean) => {
+    if (!locationId) {
+      toast.warning('Plant Area (Location) is required.');
+      setActiveStep('types_details');
+      return;
+    }
+    if (!departmentId) {
+      toast.warning('Department / Section is required.');
+      setActiveStep('types_details');
+      return;
+    }
     if (!specificLocation.trim()) {
       toast.warning('Specific Work Location is required.');
       setActiveStep('types_details');
@@ -152,6 +196,46 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
       return;
     }
 
+    // Enforce 12-hour validity maximum
+    if (!validityResult.valid) {
+      toast.error(validityResult.error || 'Validity duration cannot exceed 12 hours.');
+      setActiveStep('types_details');
+      return;
+    }
+
+    // Safety checks validation when submitting for review
+    if (submitForReview) {
+      const failedMandatory = checklists.filter((c) => c.isMandatory && c.status === 'No');
+      if (failedMandatory.length > 0) {
+        const topFailed = failedMandatory.slice(0, 3).map((f) => `[${f.id}] ${f.label}`).join(', ');
+        toast.error(
+          `Cannot submit for review: ${failedMandatory.length} mandatory safety check(s) are incomplete or marked 'No': ${topFailed}${
+            failedMandatory.length > 3 ? '...' : ''
+          }`
+        );
+        setActiveStep('checklists');
+        return;
+      }
+
+      if (requiresGasTest) {
+        if (!gasTesting.testedBy?.trim()) {
+          toast.warning('Gas Tester Full Name is required for Confined Space Entry.');
+          setActiveStep('gas_test');
+          return;
+        }
+        if (!gasTesting.oxygen?.trim()) {
+          toast.warning('Oxygen (O2) percentage reading is required for Confined Space Entry.');
+          setActiveStep('gas_test');
+          return;
+        }
+        if (gasTesting.result === 'Unsafe') {
+          toast.error('Atmosphere verdict is marked "Unsafe". Confined Space Entry prohibited until atmosphere is safe.');
+          setActiveStep('gas_test');
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       await api.createPtwPermit({
@@ -167,7 +251,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
         contactNumber,
         workersCount: Number(workersCount) || 1,
         workDescription,
-        issueDate,
+        issueDate: `${issueDate} ${issueTime}`,
         validFrom,
         validTo,
         jsaReference,
@@ -178,7 +262,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
         additionalHazards,
         additionalControls,
         isolations,
-        gasTesting,
+        gasTesting: requiresGasTest ? gasTesting : DEFAULT_GAS_TESTING,
         receiverName: leadManName,
       });
 
@@ -196,9 +280,79 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
     }
   };
 
-  const requiresGasTest = selectedTypes.some(
-    (t) => PERMIT_TYPE_CONFIG[t]?.requiresGasTest
-  );
+  // Organize active checklists into sections according to user specification
+  const checklistSections = [
+    {
+      category: 'General Safety Checks',
+      title: 'General Pre-Work Safety Verification (Applicable to All Permits)',
+      color: 'text-emerald-400',
+      bgColor: 'bg-emerald-950/30',
+      borderColor: 'border-emerald-500/30',
+      items: checklists.filter((c) => c.category === 'General Safety Checks'),
+    },
+    ...(selectedTypes.includes('Cold Work')
+      ? [
+          {
+            category: 'Cold Work',
+            title: 'CW — Cold Work Safety Verification Checklist',
+            color: 'text-sky-400',
+            bgColor: 'bg-sky-950/30',
+            borderColor: 'border-sky-500/30',
+            items: checklists.filter((c) => c.category === 'Cold Work'),
+          },
+        ]
+      : []),
+    ...(selectedTypes.includes('Hot Work')
+      ? [
+          {
+            category: 'Hot Work',
+            title: 'HW — Hot Work Safety Verification Checklist',
+            color: 'text-amber-400',
+            bgColor: 'bg-amber-950/30',
+            borderColor: 'border-amber-500/30',
+            items: checklists.filter((c) => c.category === 'Hot Work'),
+          },
+        ]
+      : []),
+    ...(selectedTypes.includes('Confined Space Entry')
+      ? [
+          {
+            category: 'Confined Space Entry',
+            title: 'CSE — Confined Space Entry Safety Verification Checklist',
+            color: 'text-purple-400',
+            bgColor: 'bg-purple-950/30',
+            borderColor: 'border-purple-500/30',
+            items: checklists.filter((c) => c.category === 'Confined Space Entry'),
+          },
+        ]
+      : []),
+    ...(selectedTypes.includes('Lifting Activity')
+      ? [
+          {
+            category: 'Lifting Activity',
+            title: 'LA — Lifting Activity Safety Verification Checklist',
+            color: 'text-indigo-400',
+            bgColor: 'bg-indigo-950/30',
+            borderColor: 'border-indigo-500/30',
+            items: checklists.filter((c) => c.category === 'Lifting Activity'),
+          },
+        ]
+      : []),
+    ...(selectedTypes.includes('Work at Height')
+      ? [
+          {
+            category: 'Work at Height',
+            title: 'WAH — Work at Height Safety Verification Checklist',
+            color: 'text-emerald-400',
+            bgColor: 'bg-emerald-950/30',
+            borderColor: 'border-emerald-500/30',
+            items: checklists.filter((c) => c.category === 'Work at Height'),
+          },
+        ]
+      : []),
+  ];
+
+  const mandatoryRemaining = checklists.filter((c) => c.isMandatory && c.status === 'No').length;
 
   return (
     <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto">
@@ -214,7 +368,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                 New Permit-to-Work (PTW) Application
               </h3>
               <p className="text-xs text-slate-400">
-                PCL Multi-Discipline PTW Digitization Form (Cold Work, Hot Work, CSE, Lifting, WAH)
+                Power Cement Limited (PCL) HSE Multi-Discipline PTW Digitization Form (Max 12-Hour Validity)
               </p>
             </div>
           </div>
@@ -239,7 +393,13 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
             <span>1. Types & Particulars</span>
           </button>
           <button
-            onClick={() => setActiveStep('checklists')}
+            onClick={() => {
+              if (!validityResult.valid) {
+                toast.error(validityResult.error || 'Permit validity exceeds 12-hour maximum limit.');
+                return;
+              }
+              setActiveStep('checklists');
+            }}
             className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
               activeStep === 'checklists'
                 ? 'bg-emerald-600 text-white shadow'
@@ -247,9 +407,18 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
             }`}
           >
             <span>2. Dynamic Checklists ({checklists.length})</span>
+            {mandatoryRemaining > 0 && (
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title={`${mandatoryRemaining} mandatory checks incomplete`} />
+            )}
           </button>
           <button
-            onClick={() => setActiveStep('isolations')}
+            onClick={() => {
+              if (!validityResult.valid) {
+                toast.error(validityResult.error || 'Permit validity exceeds 12-hour maximum limit.');
+                return;
+              }
+              setActiveStep('isolations');
+            }}
             className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
               activeStep === 'isolations'
                 ? 'bg-emerald-600 text-white shadow'
@@ -260,14 +429,20 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
           </button>
           {requiresGasTest && (
             <button
-              onClick={() => setActiveStep('gas_test')}
+              onClick={() => {
+                if (!validityResult.valid) {
+                  toast.error(validityResult.error || 'Permit validity exceeds 12-hour maximum limit.');
+                  return;
+                }
+                setActiveStep('gas_test');
+              }}
               className={`px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 ${
                 activeStep === 'gas_test'
                   ? 'bg-emerald-600 text-white shadow'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
               }`}
             >
-              <span>4. Gas Testing Record</span>
+              <span>4. Gas Testing Record (CSE)</span>
             </button>
           )}
         </div>
@@ -322,11 +497,11 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                   )}
                 </div>
                 <p className="text-[11px] text-slate-400 mt-2">
-                  * Toggling permit types dynamically adjusts the required safety verification checklist in Step 2.
+                  * Selected permit types dynamically control the checklist in Section 2 and activate Gas Testing for Confined Space Entry.
                 </p>
               </div>
 
-              {/* General Job Particulars */}
+              {/* Job Particulars & Work Location */}
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-4">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">
                   Job Particulars & Work Location
@@ -387,12 +562,12 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 font-medium mb-1">Contractor / Dept Crew</label>
+                    <label className="block text-slate-400 font-medium mb-1">Contractor / Department Crew</label>
                     <input
                       type="text"
                       value={contractorName}
                       onChange={(e) => setContractorName(e.target.value)}
-                      placeholder="e.g. Al-Farooq Mechanical / In-house"
+                      placeholder="e.g. Al-Farooq Mechanical / In-house Crew"
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -443,46 +618,118 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                 </div>
               </div>
 
-              {/* Validity & Safety Baseline */}
+              {/* Validity & Safety Baseline — Maximum 12 Hours */}
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-4">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">
-                  Validity Period & Pre-Requisites
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-slate-400 font-medium mb-1">Issue Date</label>
-                    <input
-                      type="date"
-                      value={issueDate}
-                      onChange={(e) => setIssueDate(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500"
-                    />
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-emerald-400" />
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Issue Date, Time & Permit Validity (Strict Maximum 12 Hours)
+                    </h4>
                   </div>
-
-                  <div>
-                    <label className="block text-slate-400 font-medium mb-1">Valid From (Date & Time)</label>
-                    <input
-                      type="text"
-                      value={validFrom}
-                      onChange={(e) => setValidFrom(e.target.value)}
-                      placeholder="YYYY-MM-DD HH:mm"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 font-medium mb-1">Valid To (Date & Time)</label>
-                    <input
-                      type="text"
-                      value={validTo}
-                      onChange={(e) => setValidTo(e.target.value)}
-                      placeholder="YYYY-MM-DD HH:mm"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSetMax12Hours}
+                    className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 underline"
+                  >
+                    Set Max 12h Validity
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Issue Date & Time */}
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Issue Date & Time</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={issueDate}
+                        onChange={(e) => setIssueDate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                      <input
+                        type="time"
+                        value={issueTime}
+                        onChange={(e) => setIssueTime(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Valid From Date & Time */}
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Valid From (Date & Time) *</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={validFromDate}
+                        onChange={(e) => setValidFromDate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                      <input
+                        type="time"
+                        value={validFromTime}
+                        onChange={(e) => setValidFromTime(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Valid To Date & Time */}
+                  <div>
+                    <label className="block text-slate-400 font-medium mb-1">Valid To (Date & Time) *</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={validToDate}
+                        onChange={(e) => setValidToDate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                      <input
+                        type="time"
+                        value={validToTime}
+                        onChange={(e) => setValidToTime(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Duration Status Indicator */}
+                <div className="pt-1">
+                  {validityResult.valid ? (
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>
+                          Permit Duration: <strong>{validityResult.durationHours} hours</strong> (Permitted: Up to 12.0 hours)
+                        </span>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-emerald-900/60 border border-emerald-500/40">
+                        Validity Compliant
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                        <span>{validityResult.error}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSetMax12Hours}
+                        className="text-[10px] uppercase font-bold px-2.5 py-1 rounded bg-rose-900 text-white hover:bg-rose-800 transition-colors flex-shrink-0 ml-2"
+                      >
+                        Auto-Fix to 12h
+                      </button>
+                    </div>
+                  )}
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    * Validity is capped at 12 hours absolute maximum. Permits may cross midnight without shift-end restrictions.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-800/80">
                   <div>
                     <label className="block text-slate-400 font-medium mb-1">JSA / Risk Assessment Ref</label>
                     <input
@@ -526,14 +773,15 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
 
           {/* STEP 2: DYNAMIC SAFETY VERIFICATION CHECKLISTS */}
           {activeStep === 'checklists' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <div>
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                    Safety Verification Checklists
+                    Dynamic Safety Verification Checklists
                   </h4>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Unified requirements for: <span className="font-semibold text-emerald-400">{selectedTypes.join(', ')}</span>
+                    Showing General Safety Checks + selected disciplines:{' '}
+                    <span className="font-semibold text-emerald-400">{selectedTypes.join(', ')}</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-[11px]">
@@ -541,73 +789,91 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Verified: {checklists.filter((c) => c.status === 'Yes').length}
                   </span>
                   <span className="flex items-center gap-1 text-rose-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Unchecked: {checklists.filter((c) => c.status === 'No').length}
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Mandatory Unverified: {mandatoryRemaining}
                   </span>
                 </div>
               </div>
 
-              {/* Checklist Table */}
-              <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-400 font-semibold text-[11px]">
-                      <th className="py-2.5 px-3 w-16 text-center">Ref</th>
-                      <th className="py-2.5 px-3">Verification Check / Safety Requirement</th>
-                      <th className="py-2.5 px-3 w-36 text-center">Status</th>
-                      <th className="py-2.5 px-3 w-64">Verification Notes / Evidence</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {checklists.map((chk) => (
-                      <tr key={chk.id} className="hover:bg-slate-900/40">
-                        <td className="py-2 px-3 text-center font-mono font-bold text-slate-400 text-[10px]">
-                          {chk.id}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase mr-1.5">
-                            [{chk.category}]
-                          </span>
-                          <span className="text-slate-200">{chk.label}</span>
-                          {chk.isMandatory && (
-                            <span className="text-rose-400 ml-1.5 font-bold text-[10px]">*Mandatory</span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          <div className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5">
-                            {(['Yes', 'No', 'N/A'] as const).map((opt) => (
-                              <button
-                                key={opt}
-                                type="button"
-                                onClick={() => handleChecklistStatusChange(chk.id, opt)}
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
-                                  chk.status === opt
-                                    ? opt === 'Yes'
-                                      ? 'bg-emerald-600 text-white'
-                                      : opt === 'No'
-                                      ? 'bg-rose-600 text-white'
-                                      : 'bg-slate-700 text-slate-200'
-                                    : 'text-slate-400 hover:text-white'
+              {/* Categorized Checklist Tables */}
+              {checklistSections.map((sec) => (
+                <div
+                  key={sec.category}
+                  className={`border ${sec.borderColor} rounded-xl overflow-hidden bg-slate-950/60 shadow-sm`}
+                >
+                  <div className={`px-4 py-2.5 ${sec.bgColor} border-b ${sec.borderColor} flex items-center justify-between`}>
+                    <span className={`font-bold text-xs ${sec.color} uppercase tracking-wider`}>
+                      {sec.title}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {sec.items.length} checks
+                    </span>
+                  </div>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-950 border-b border-slate-800/80 text-slate-400 font-semibold text-[11px]">
+                        <th className="py-2 px-3 w-16 text-center">Ref</th>
+                        <th className="py-2 px-3">Verification Check / Safety Requirement</th>
+                        <th className="py-2 px-3 w-36 text-center">Status</th>
+                        <th className="py-2 px-3 w-64">Verification Notes / Evidence</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {sec.items.map((chk) => (
+                        <tr key={chk.id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="py-2 px-3 text-center font-mono font-bold text-slate-400 text-[10px]">
+                            {chk.id}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className="text-slate-200">{chk.label}</span>
+                            {chk.isMandatory && (
+                              <span
+                                className={`ml-2 font-bold text-[10px] px-1.5 py-0.5 rounded ${
+                                  chk.status === 'No'
+                                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 }`}
                               >
-                                {opt}
-                              </button>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="py-2 px-3">
-                          <input
-                            type="text"
-                            value={chk.notes || ''}
-                            onChange={(e) => handleChecklistNoteChange(chk.id, e.target.value)}
-                            placeholder="e.g. Inspected by Lead / Tag verified"
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                                {chk.status === 'No' ? '*Mandatory (Unverified)' : 'Mandatory (Verified)'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 px-3 text-center">
+                            <div className="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5">
+                              {(['Yes', 'No', 'N/A'] as const).map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => handleChecklistStatusChange(chk.id, opt)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                    chk.status === opt
+                                      ? opt === 'Yes'
+                                        ? 'bg-emerald-600 text-white'
+                                        : opt === 'No'
+                                        ? 'bg-rose-600 text-white'
+                                        : 'bg-slate-700 text-slate-200'
+                                      : 'text-slate-400 hover:text-white'
+                                  }`}
+                                >
+                                  {opt}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <input
+                              type="text"
+                              value={chk.notes || ''}
+                              onChange={(e) => handleChecklistNoteChange(chk.id, e.target.value)}
+                              placeholder="e.g. Inspected by Lead / Tag verified"
+                              className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-slate-200 text-xs focus:outline-none focus:border-emerald-500"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
 
               {/* Additional Custom Hazards & Controls */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
@@ -745,23 +1011,23 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
             </div>
           )}
 
-          {/* STEP 4: GAS TESTING RECORD */}
+          {/* STEP 4: GAS TESTING RECORD (ONLY FOR CONFINED SPACE ENTRY) */}
           {activeStep === 'gas_test' && requiresGasTest && (
             <div className="space-y-4">
               <div className="pb-2 border-b border-slate-800">
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                   <Gauge className="w-4 h-4 text-purple-400" />
-                  <span>Atmospheric Gas Testing Verification</span>
+                  <span>Confined Space Entry — Atmospheric Gas Testing Record</span>
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Required for Confined Space Entry and Hot Work within combustible proximity.
+                  Mandatory for CSE: Multi-gas atmospheric analysis must be verified and safe before any entry is permitted.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                    Oxygen (O2) % (Safe: 19.5 - 23.5%)
+                    Oxygen (O2) % (Safe: 19.5 - 23.5%) *
                   </span>
                   <input
                     type="text"
@@ -774,7 +1040,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
 
                 <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-                    Combustible Gas (LEL) % (&lt;10%)
+                    Combustible Gas (LEL) % (&lt;10%) *
                   </span>
                   <input
                     type="text"
@@ -793,7 +1059,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                     type="text"
                     value={gasTesting.co || ''}
                     onChange={(e) => handleGasTestChange('co', e.target.value)}
-                    placeholder="2"
+                    placeholder="0"
                     className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-slate-200 font-mono text-sm focus:outline-none focus:border-purple-500"
                   />
                 </div>
@@ -814,7 +1080,7 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950/60 border border-slate-800 rounded-xl p-4">
                 <div>
-                  <label className="block text-slate-400 font-medium mb-1">Gas Tester Full Name</label>
+                  <label className="block text-slate-400 font-medium mb-1">Gas Tester Full Name *</label>
                   <input
                     type="text"
                     value={gasTesting.testedBy || ''}
@@ -836,14 +1102,13 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 font-medium mb-1">Atmosphere Verdict</label>
+                  <label className="block text-slate-400 font-medium mb-1">Atmosphere Verdict *</label>
                   <select
                     value={gasTesting.result || 'Safe to Enter'}
                     onChange={(e) => handleGasTestChange('result', e.target.value as any)}
                     className="w-full bg-slate-900 border border-slate-800 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-bold"
                   >
                     <option value="Safe to Enter">Safe to Enter</option>
-                    <option value="Safe for Hot Work">Safe for Hot Work</option>
                     <option value="Unsafe">Unsafe (Ventilation Required)</option>
                   </select>
                 </div>
@@ -873,9 +1138,17 @@ export const PtwCreateModal: React.FC<PtwCreateModalProps> = ({ onClose, onCreat
               <button
                 type="button"
                 onClick={() => {
-                  if (activeStep === 'types_details') setActiveStep('checklists');
-                  else if (activeStep === 'checklists') setActiveStep('isolations');
-                  else if (activeStep === 'isolations' && requiresGasTest) setActiveStep('gas_test');
+                  if (activeStep === 'types_details') {
+                    if (!validityResult.valid) {
+                      toast.error(validityResult.error || 'Permit validity duration exceeds 12 hours.');
+                      return;
+                    }
+                    setActiveStep('checklists');
+                  } else if (activeStep === 'checklists') {
+                    setActiveStep('isolations');
+                  } else if (activeStep === 'isolations' && requiresGasTest) {
+                    setActiveStep('gas_test');
+                  }
                 }}
                 className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition-colors"
               >
