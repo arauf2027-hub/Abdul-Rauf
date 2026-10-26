@@ -12,8 +12,12 @@ import {
   DEFAULT_ISOLATIONS,
   DEFAULT_GAS_TESTING,
 } from '../../config/ptwChecklists.ts';
+import eicRouter from './eic.ts';
 
 const router = Router();
+
+// Mount Electrical Isolation Certificate sub-router under /api/ptw/eic
+router.use('/eic', eicRouter);
 
 // GET /api/ptw - List permits with filters
 router.get('/', requireAuth, async (req: AuthRequest, res) => {

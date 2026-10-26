@@ -19,7 +19,7 @@ import analyticsRouter from './src/server/routes/analytics.ts';
 import documentsRouter from './src/server/routes/documents.ts';
 import masterdataRouter from './src/server/routes/masterdata.ts';
 import ptwRouter from './src/server/routes/ptw.ts';
-import isolationCertificatesRouter from './src/server/routes/isolationCertificates.ts';
+import eicRouter from './src/server/routes/eic.ts';
 import { processOverdueActions } from './src/services/reminders.ts';
 import { initializeDatabase } from './src/db/index.ts';
 
@@ -56,7 +56,7 @@ async function startServer() {
   app.use('/api/documents', documentsRouter);
   app.use('/api/masterdata', masterdataRouter);
   app.use('/api/ptw', ptwRouter);
-  app.use('/api/isolation-certificates', isolationCertificatesRouter);
+  app.use('/api/eic', eicRouter);
 
   // Health check endpoint
   app.get('/api/health', (req, res) => {

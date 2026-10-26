@@ -273,63 +273,101 @@ export async function seedPtwIfEmpty() {
 
 export async function seedEicIfEmpty() {
   try {
-    const existing = await db.query.electricalIsolationCertificates.findFirst();
-    if (existing) return;
+    const existing = await db.select().from(schema.electricalIsolationCertificates).limit(1);
+    if (existing.length > 0) {
+      return;
+    }
 
     const today = new Date().toISOString().split('T')[0];
+
+    // Find PTW-2026-000001 if available
+    const ptw1 = await db.query.ptwPermits.findFirst({
+      where: (p, { eq }) => eq(p.permitNumber, 'PTW-2026-000001'),
+    });
+
+    // Seed 1: Isolation Confirmed
     await db.insert(schema.electricalIsolationCertificates).values({
       certificateNumber: 'EIC-2026-000001',
-      ptwNumber: 'PTW-2026-000001',
       status: 'Isolation Confirmed',
+      linkedPtwId: ptw1?.id || null,
+      linkedPtwNumber: ptw1?.permitNumber || 'PTW-2026-000001',
+      workLocation: 'Raw Material Preparation & Grinding / MCC Room 04',
       locationId: 1,
-      departmentId: 2,
-      workLocation: 'Raw Mill Feed Circuit - Electrical Substation 02',
-      requestDate: today,
-      requestTime: '08:00',
-      equipmentToIsolate: 'Raw Mill Main Drive Motor 412-M-01',
-      equipmentTag: '412-M-01',
-      workDescription: 'Preventive maintenance and replacement of motor drive couplings and stator winding inspection.',
-      requestorName: 'Tariq Mahmood',
-      requestorDesignation: 'Mechanical Lead Engineer',
-      requestorSignature: 'T. Mahmood',
-      requestorSignatureDate: new Date(),
-      approvedByName: 'Engr. Kamran Ahmed',
-      approvedByDesignation: 'Electrical Section In-Charge',
-      approvedBySignature: 'K. Ahmed (Approved)',
-      approvedByDate: new Date(),
+      equipmentToIsolate: 'Raw Mill Main Drive Motor 411-BM-01 (6.6 kV, 3200 kW)',
+      date: today,
+      time: '07:30',
+      workDescription: 'Replacement of Drive End (DE) roller bearing, drive shaft laser alignment, and trunnion lubrication oil pipe manifold inspection.',
+      requestorName: 'Engr. Tariq Aziz',
+      requestorDesignation: 'Mechanical Maintenance Section Head',
+      requestorSignature: 'Tariq Aziz (Signed digitally)',
+      requestorDate: `${today} 07:35`,
+      approverName: 'Engr. Noman Bashir',
+      approverDesignation: 'Electrical & Instrumentation Manager',
+      approverSignature: 'Noman Bashir (Approved)',
+      approvedAt: new Date(),
+      approvalRemarks: 'Electrical isolation authorized for shutdown work. LOTO must remain locked until bearing clearance checked.',
       fusesRemoved: true,
       mainSwitchedOff: true,
       rackedOut: true,
       padlocksFitted: true,
       tagsFitted: true,
-      electricalPoints: JSON.stringify([
-        { id: '1', location: 'Substation-02 Switchgear Room', breakerNo: 'VCB-412-01 (6.6 kV)', action: 'Lock', padlockNo: 'PCL-EL-091', tagOut: 'Yes' },
-        { id: '2', location: 'Substation-02 MCC Room', breakerNo: 'MCC-412-LUBE', action: 'Lock', padlockNo: 'PCL-EL-092', tagOut: 'Yes' },
-        { id: '3', location: 'Substation-02 MCC Room', breakerNo: 'MCC-412-FAN', action: 'Lock', padlockNo: 'PCL-EL-093', tagOut: 'Yes' },
-        { id: '4', location: 'Local Field Emergency Stop', breakerNo: 'LCS-412-M01', action: 'Open', padlockNo: 'PCL-EL-094', tagOut: 'Yes' },
-        { id: '5', location: 'Control Cabinet PLC-04', breakerNo: 'MCB-24V-DC', action: 'Open', padlockNo: 'PCL-EL-095', tagOut: 'Yes' },
+      isolationVerifiedAt: new Date(),
+      isolationPoints: JSON.stringify([
+        { id: '1', location: 'MCC-04 6.6kV Switchgear Room', breakerNo: '411-BM01-Bkr', action: 'Lock', padlockNo: 'LOTO-EL-104', tagOut: 'Yes' },
+        { id: '2', location: 'MCC-04 Aux Cubicle 08', breakerNo: '411-LP01-Bkr', action: 'Lock', padlockNo: 'LOTO-EL-105', tagOut: 'Yes' },
+        { id: '3', location: 'Mill Basement Jacking Pump Panel', breakerNo: '411-JP01-Bkr', action: 'Lock', padlockNo: 'LOTO-EL-106', tagOut: 'Yes' },
+        { id: '4', location: 'MCC-04 Damper Actuator Feeder', breakerNo: '411-DA-Bkr', action: 'Open', padlockNo: 'LOTO-EL-107', tagOut: 'Yes' },
+        { id: '5', location: 'Reject Conveyor Local Isolator', breakerNo: '411-RC-Bkr', action: 'Lock', padlockNo: 'LOTO-EL-108', tagOut: 'Yes' },
       ]),
-      electricalCompetentName: 'Muhammad Aslam',
-      electricalCompetentDesignation: 'Senior Electrical Specialist',
-      electricalCompetentSignature: 'M. Aslam (Certified)',
-      electricalOperatorSignature: 'CCR Shift Operator (Confirmed)',
-      electricalIsolationDate: new Date(),
-      otherPoints: JSON.stringify([
-        { id: '1', controlMechanism: 'Hydraulic High-Pressure Lube Supply', location: 'Raw Mill Hydraulic Room', inletOutletDrain: 'I', blanked: 'No', valves: 'Closed', padlockNo: 'PCL-ME-041', taggedOut: 'Yes' },
-        { id: '2', controlMechanism: 'Hydraulic Return Line', location: 'Raw Mill Hydraulic Room', inletOutletDrain: 'O', blanked: 'No', valves: 'Closed', padlockNo: 'PCL-ME-042', taggedOut: 'Yes' },
-        { id: '3', controlMechanism: 'Mill Housing Purge Air Line', location: 'Raw Mill Manifold', inletOutletDrain: 'I', blanked: 'Yes', valves: 'Closed', padlockNo: 'PCL-ME-043', taggedOut: 'Yes' },
+      competentPersonName: 'Engr. Bilal Farooq',
+      competentPersonDesignation: 'Senior Electrical Engineer (Plant E&I)',
+      operatorSignature: 'Tariq Jameel (CCR Senior Panel Operator)',
+      competentPersonSignature: 'Bilal Farooq (Competent Electrical Person)',
+      competentPersonConfirmedAt: new Date(),
+      otherIsolations: JSON.stringify([
+        { id: '1', controlMechanism: 'High Pressure Lube Line Manifold', location: 'Raw Mill Basement', inletOutletDrain: 'Drain', linesBlanked: 'Yes', valvesStatus: 'Closed', padlockNo: 'LOTO-ME-301', taggedOut: 'Yes' },
+        { id: '2', controlMechanism: 'Hydraulic Trunnion Pack Line', location: 'Hydraulic Room Station 2', inletOutletDrain: 'Inlet', linesBlanked: 'No', valvesStatus: 'Closed', padlockNo: 'LOTO-ME-302', taggedOut: 'Yes' },
+        { id: '3', controlMechanism: 'Air Purge Blowback Supply Line', location: 'Raw Mill Feed Chute', inletOutletDrain: 'Inlet', linesBlanked: 'Yes', valvesStatus: 'Closed', padlockNo: 'LOTO-UT-114', taggedOut: 'Yes' },
       ]),
-      otherCompetentName: 'Khurram Shahzad',
-      otherCompetentDesignation: 'Mechanical Specialist',
-      otherCompetentSignature: 'K. Shahzad (Verified)',
-      otherIsolationDate: today,
-      otherIsolationTime: '08:45',
+      otherCompetentPersonName: 'Khurram Shehzad',
+      otherCompetentPersonDesignation: 'Mechanical Shift Supervisor',
+      otherCompetentPersonSignature: 'Khurram Shehzad (Signed)',
+      otherConfirmationDate: today,
+      otherConfirmationTime: '08:15',
+      otherConfirmedAt: new Date(),
     });
 
-    console.log('[EHS DB] Initial Electrical Isolation Certificate seeded successfully.');
+    // Seed 2: Draft
+    await db.insert(schema.electricalIsolationCertificates).values({
+      certificateNumber: 'EIC-2026-000002',
+      status: 'Draft',
+      workLocation: 'Clinker Burning & Pyroprocessing / Cooler ESP MCC',
+      locationId: 2,
+      equipmentToIsolate: 'Cooler ID Fan Motor 431-FN-02 (400 kW, 400V)',
+      date: today,
+      time: '10:00',
+      workDescription: 'Preventive vibration analysis inspection, stator insulation resistance megger testing, and power cable box re-torquing.',
+      requestorName: 'Muhammad Arshad',
+      requestorDesignation: 'Electrical Maintenance Supervisor',
+      requestorSignature: '',
+      requestorDate: `${today} 10:00`,
+      isolationPoints: JSON.stringify([
+        { id: '1', location: 'ESP MCC-02 Substation', breakerNo: '431-FN02-Bkr', action: 'Lock', padlockNo: '', tagOut: 'Yes' },
+        { id: '2', location: 'Local Isolator Station at ID Fan', breakerNo: '431-ISOL-02', action: 'Open', padlockNo: '', tagOut: 'Yes' },
+        { id: '3', location: 'ESP MCC-02 Control Circuit Fuse', breakerNo: '431-CC-02', action: 'Open', padlockNo: '', tagOut: 'No' },
+        { id: '4', location: 'Lube Oil Skid Motor', breakerNo: '431-LO-02', action: 'Lock', padlockNo: '', tagOut: 'Yes' },
+        { id: '5', location: 'Inlet Damper Actuator Breaker', breakerNo: '431-DM-02', action: 'Open', padlockNo: '', tagOut: 'Yes' },
+      ]),
+      otherIsolations: JSON.stringify([
+        { id: '1', controlMechanism: 'ID Fan Inlet Isolation Damper', location: 'Cooler Exhaust Duct', inletOutletDrain: 'Inlet', linesBlanked: 'No', valvesStatus: 'Closed', padlockNo: '', taggedOut: 'Yes' },
+        { id: '2', controlMechanism: 'Cooling Water Supply to Bearings', location: 'Bearing Skid #1', inletOutletDrain: 'Inlet', linesBlanked: 'No', valvesStatus: 'Closed', padlockNo: '', taggedOut: 'Yes' },
+        { id: '3', controlMechanism: 'Bearing Return Water Drain', location: 'Bearing Skid #2', inletOutletDrain: 'Outlet', linesBlanked: 'No', valvesStatus: 'Open', padlockNo: '', taggedOut: 'No' },
+      ]),
+    });
+
+    console.log('[EHS DB] Initial Electrical Isolation Certificates seeded successfully.');
   } catch (err) {
     console.error('[EHS DB] EIC seeding error (non-fatal):', err);
   }
 }
-
 

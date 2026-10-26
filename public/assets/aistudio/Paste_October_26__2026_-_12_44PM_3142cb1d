@@ -1,0 +1,783 @@
+I’ve reviewed your uploaded development prompt. It is intended to enhance Power Cement Limited’s existing HSE Management System by adding an **Electrical Isolation Certificate alongside the existing Permit-to-Work (PTW) module**, while preserving existing functionality, database records, authentication, and other modules. Pasted text(3)
+
+The improved version below is structured for direct use in **Google AI Studio**. It emphasizes incremental development, PCL-specific integration, persistent database storage, safe workflow controls, editable forms, PDF printing, and testing. It also instructs the AI not to invent PCL procedures, approval authorities, or technical requirements.
+
+## Improved Master Prompt for Google AI Studio
+
+Copy the following prompt into Google AI Studio. If your existing PCL application is already open in the development environment, use this prompt to modify that application rather than generating a new one.
+
+# MASTER DEVELOPMENT PROMPT
+## Power Cement Limited (PCL) — Integration of Electrical Isolation Certificate into the Existing HSE Management System
+
+### 1. PROJECT OBJECTIVE
+
+Enhance the existing **Power Cement Limited (PCL) HSE Management System** by integrating a fully functional, editable Electrical Isolation Certificate module into the existing Permit-to-Work (PTW) section.
+
+The system must allow users to select between:
+
+1. **Permit to Work (PTW)** — the existing module.
+2. **Electrical Isolation Certificate** — the new module to be developed.
+
+The new module must support certificate preparation, submission, approval recording, isolation verification, work completion, de-isolation confirmation, record tracking, persistent database storage, and professional printing or PDF generation.
+
+The application is intended for operational use within Power Cement Limited. Its design must be suitable for an industrial cement manufacturing environment and consistent with the existing PCL HSE Management System.
+
+**Primary instruction:** Modify the existing application incrementally. Do not rebuild the application, replace its database, create a duplicate PTW module, or alter unrelated modules.
+
+Use the supplied `Electrical_Isolation_Certificate_Blank.pdf` as the reference for the certificate's layout, section numbering, declarations, terminology, tables, and signature fields.
+
+If the reference PDF is not available in the development environment, ask for it to be uploaded. Do not invent missing form content or claim to have reproduced a document that you have not inspected.
+
+---
+
+### 2. FIRST STEP — INSPECT THE EXISTING APPLICATION
+
+Before making any code changes, inspect the existing PCL HSE Management System.
+
+Identify and understand:
+
+- Existing application architecture and project structure.
+- Frontend framework and reusable UI components.
+- Current navigation menu and routing.
+- Existing PTW form, validation, and workflow.
+- Existing authentication and user-management system.
+- User roles and access permissions.
+- Current database and backend services.
+- Existing database collections, tables, and relationships.
+- Existing document-numbering conventions.
+- Existing save, edit, view, and record-search functionality.
+- Existing audit trails and activity logs, if available.
+- Existing printing and PDF-generation functionality.
+- Existing responsive layouts for desktop, tablet, and mobile.
+- Existing deployment configuration and environment variables.
+
+If the application uses Firebase, inspect its current Firebase configuration and determine whether Cloud Firestore is already connected and operational. Reuse the existing configuration and database.
+
+If another persistent backend is already in use, continue using that backend.
+
+**Do not introduce a second database or replace the current backend merely to implement this module.**
+
+If you cannot inspect the existing application files or access its database configuration, clearly identify the limitation and request the necessary files or access before making assumptions about the implementation.
+
+Once the inspection is complete, implement the enhancement directly in the existing application.
+
+---
+
+### 3. INITIAL DOCUMENT SELECTION SCREEN
+
+When a user opens the PTW section, display a professional document-selection screen before opening either form.
+
+Display two clearly differentiated cards or buttons.
+
+#### Option A — Permit to Work
+
+Button label: `OPEN PERMIT TO WORK`
+
+Requirements:
+
+- Open the existing PTW form and workflow.
+- Preserve all existing PTW functionality.
+- Retain previously specified PTW improvements, including:
+  - Multiple permit types where currently supported or required.
+  - Dynamic safety checklists.
+  - Maximum 12-hour permit validity.
+  - Existing Isolation and LOTOTO section.
+  - Conditional Gas Testing Record page for Confined Space Entry.
+- Preserve existing PTW records, numbering, permissions, and routes.
+- Do not replace the existing PTW isolation section with the new Electrical Isolation Certificate.
+
+#### Option B — Electrical Isolation Certificate
+
+Button label: `OPEN ELECTRICAL ISOLATION CERTIFICATE`
+
+Requirements:
+
+- Open the new Electrical Isolation Certificate module.
+- Provide access to creating a certificate and viewing existing certificates.
+- Support saving drafts, submitting records, recording workflow stages, searching, reopening, and printing.
+- Maintain separate certificate records and numbering.
+- Provide a clear route back to the document-selection screen.
+
+The two documents must have separate forms, records, and workflows.
+
+Do not combine the PTW and Electrical Isolation Certificate into one long form.
+
+---
+
+### 4. ELECTRICAL ISOLATION CERTIFICATE — FORM DESIGN
+
+Create a professional, fully editable form based on the supplied reference PDF.
+
+Preserve the original section numbering, field labels, declarations, and terminology wherever possible.
+
+Use a clean, industrial document design consistent with the existing PCL application.
+
+Display the following header information:
+
+- Power Cement Limited.
+- Electrical Isolation Certificate.
+- Certificate Number.
+- Current certificate status.
+- Date and time of creation, where supported.
+- Optional linked PTW number.
+
+Do not invent a company logo, approval authority, signature, or authorization.
+
+All fields must be editable application elements rather than a static image of the reference PDF.
+
+#### SECTION 1.0 — WORK DETAILS
+
+Create the following fields:
+
+- Certificate No. — automatically generated unique number.
+- 1.1 Work Location.
+- Date.
+- 1.2 Equipment to be Isolated.
+- Time.
+- 1.3 Work Description.
+
+Requirements:
+
+- Make the certificate number system-generated and read-only.
+- Make essential work details mandatory before submission.
+- Use appropriate date and time controls.
+- Save all entered information persistently.
+- Allow authorized users to reopen and edit records according to their permissions and workflow status.
+
+Do not invent PCL equipment names, locations, or asset numbers. Use existing application data if available; otherwise, allow users to enter the information.
+
+#### SECTION 2.0 — ISOLATION REQUISITION
+
+Create the following fields.
+
+**2.1 Requestor**
+
+- Requestor Name.
+- Designation.
+- Signature.
+
+**2.2 Approved By**
+
+- Name.
+- Designation.
+- Signature.
+
+Approval-authority fields must remain configurable.
+
+Do not hardcode names, job titles, departments, or approval hierarchies.
+
+Do not automatically approve a certificate because the requestor has completed the form.
+
+Where the existing application supports electronic signatures or authenticated approval actions, reuse that functionality. Otherwise, provide appropriate signature fields without representing typed names as verified electronic signatures.
+
+#### SECTION 3.0 — DETAILS OF ELECTRICAL ISOLATION
+
+##### 3.1 Electrical Isolation Verification
+
+Provide separate, initially unchecked checkbox controls for:
+
+- Fuses removed.
+- Main switched off.
+- Racked out.
+- Padlocks fitted.
+- Tags fitted.
+
+Requirements:
+
+- No checkbox may be preselected.
+- Save each selection with the certificate.
+- Record the user and timestamp associated with the verification where supported.
+- Do not automatically mark electrical isolation as confirmed merely because the certificate has been created or submitted.
+- Require the applicable verification information before allowing the isolation-confirmation stage to be recorded.
+
+Do not introduce additional technical acceptance criteria that are not present in the reference form or confirmed PCL procedures.
+
+##### 3.2 Electrical Isolation Point Register
+
+Create an editable table with at least five initial rows.
+
+Use these columns:
+
+1. Location.
+2. Breaker No.
+3. Action — Open / Lock.
+4. Padlock No.
+5. Tag Out — Yes / No.
+
+Requirements:
+
+- Allow users to add and remove additional rows where appropriate.
+- Preserve all previously entered data when rows are added or removed.
+- Use dropdowns for defined choices.
+- Validate required fields before the relevant workflow stage is completed.
+- Allow additional rows to continue onto subsequent printed pages.
+- Save all rows to the persistent database.
+
+Do not automatically select an action, padlock number, or tag-out status.
+
+##### 3.3 Confirmation by Competent Person
+
+Display the following declaration exactly as provided in the reference form:
+
+"I hereby confirm the above Isolations have been taken, the equipment has been proven de-energized by electrical test and all concerned/affected individuals have been adequately informed including CCR-Operator."
+
+Provide the following fields:
+
+- Name of competent person performing isolation.
+- Designation.
+- Signature of Operator.
+- Sign-1 / signature of the competent person, consistent with the reference layout.
+
+Preserve the distinction between the operator's signature and the competent person's signature.
+
+Do not automatically complete this declaration or generate a signature.
+
+#### SECTION 4.0 — OTHER TYPES OF ISOLATION
+
+Create an editable isolation register with at least three initial rows.
+
+Include the following columns and controls:
+
+1. Control Mechanism.
+2. Location.
+3. Inlet / Outlet / Drain (I / O / D).
+4. Lines: Blanked — Yes / No.
+5. Valves: Open / Closed.
+6. Padlock No.
+7. Tagged Out — Yes / No.
+
+Requirements:
+
+- Allow users to add further rows.
+- Preserve existing entries when rows are added.
+- Provide clear dropdowns for the specified options.
+- Save all entries persistently.
+- Ensure the table remains readable on desktop and mobile.
+- Allow the table to span multiple printed pages without losing data.
+
+Do not assume that every certificate requires entries in this section. Apply validation according to the completed form and confirmed PCL procedure.
+
+##### 4.2 Isolation Confirmation
+
+Display the following declaration exactly as supplied in the reference form:
+
+"I hereby confirm the above Isolations have been taken, the equipment has been proven de-energized by electrical test and all concerned/affected individuals have been adequately informed."
+
+Provide these fields:
+
+- Name of competent person performing isolation.
+- Designation.
+- Signature.
+- Date.
+- Time.
+
+Preserve the original declaration.
+
+Do not silently rewrite the declaration or represent it as a different technical verification statement.
+
+Keep this confirmation separate from Section 3.3.
+
+#### SECTION 5.0 — COMPLETION OF THE WORK
+
+##### 5.1 Work Completion Declaration
+
+Display the following declaration:
+
+"I hereby confirm that the work detailed in section 1 above is completed, the personnel and equipment withdrawn and the Isolation may now be removed by a competent responsible person."
+
+Provide these fields:
+
+- Person in charge of work.
+- Signature.
+- Date.
+- Time.
+
+Record work completion as a separate workflow stage.
+
+Do not automatically remove an isolation, re-energize equipment, or close the certificate when this declaration is completed.
+
+##### 5.2 Completion Approval
+
+Provide the following fields:
+
+- Approved By — Name.
+- Designation.
+- Signature.
+
+Do not hardcode the approver's identity or designation.
+
+Do not automatically populate approval fields or treat a blank approval field as approval.
+
+#### SECTION 6.0 — CONFIRMATION OF DE-ISOLATION
+
+##### 6.1 De-Isolation Declaration
+
+Display the following declaration:
+
+"I hereby confirm that the Isolations detailed in section 3/4 have been removed and the system re-energized."
+
+Provide the following fields:
+
+- Name.
+- Designation.
+- Signature.
+- Date.
+- Time.
+- CCR Operator Signatures.
+
+Requirements:
+
+- Record de-isolation separately from initial isolation.
+- Require the applicable work-completion stage before proceeding to de-isolation.
+- Record the person completing the de-isolation confirmation.
+- Record the relevant date and time.
+- Require de-isolation confirmation before closing the certificate.
+- Do not automatically mark the equipment as re-energized or the certificate as closed.
+
+The application must record confirmations made by authorized personnel; it must not imply that software actions physically isolate or re-energize equipment.
+
+---
+
+### 5. DOCUMENT COPY DESIGNATIONS
+
+Include the following four copy designations in the printed certificate footer:
+
+- ELECTRICAL COPY
+- SITE COPY
+- CCR COPY
+- HSE COPY
+
+Provide a print-friendly layout that allows the required copies to be generated.
+
+The printed document must identify the certificate number and relevant work details on each page.
+
+Where supported by the existing printing functionality, allow users to print the required copies individually or generate a print-ready document containing the required copy designations.
+
+Do not imply that four physical copies have been distributed merely because the document has been printed.
+
+---
+
+### 6. CERTIFICATE NUMBERING AND DATABASE STORAGE
+
+Implement certificate numbering using the existing application's database and numbering conventions.
+
+Requirements:
+
+1. Generate a unique certificate number automatically.
+2. Keep Electrical Isolation Certificate numbering separate from PTW numbering unless the existing application already has an approved shared numbering convention.
+3. Prevent duplicate certificate creation from repeated clicks or repeated form submissions.
+4. Persist all certificate details, table rows, declarations, signatures or signature references, workflow statuses, and relevant timestamps.
+5. Allow authorized users to retrieve saved certificates after logging out, refreshing the browser, or reopening the application.
+6. Support reopening, viewing, and editing records according to user permissions and workflow status.
+7. Preserve historical records.
+8. Record significant changes in an audit trail where the existing architecture supports it.
+9. Provide search and filtering by:
+   - Certificate number.
+   - Work location.
+   - Equipment.
+   - Date or date range.
+   - Status.
+   - Linked PTW number, where applicable.
+
+If the existing application uses Cloud Firestore, create an appropriate certificate collection and data structure using the existing Firebase project.
+
+Reuse the current authentication and database configuration.
+
+If database schema changes are necessary, make compatible changes without deleting or overwriting existing data.
+
+**Do not rely solely on browser local storage for operational records when a persistent backend database is available.**
+
+Do not claim that database integration works until it has been tested.
+
+---
+
+### 7. WORKFLOW AND STATUS MANAGEMENT
+
+Implement a clear workflow for the Electrical Isolation Certificate.
+
+Use the following proposed statuses:
+
+1. Draft.
+2. Submitted for Approval.
+3. Approved / Authorized.
+4. Isolation Confirmed.
+5. Work in Progress.
+6. Work Completed.
+7. De-isolation Confirmed / Closed.
+8. Rejected or Cancelled, where supported.
+
+These statuses are proposed application workflow labels. They are not additional declarations from the source form.
+
+Requirements:
+
+- Display the current status clearly on the certificate record.
+- Record status changes and the associated user and timestamp where supported.
+- Provide appropriate actions for authorized users.
+- Prevent unauthorized users from approving or closing certificates.
+- Keep approval-authority assignments configurable for later implementation.
+- Do not invent the PCL approval matrix.
+- Do not automatically advance a certificate through its workflow.
+- Do not automatically approve, isolate, complete, de-isolate, or close a certificate.
+
+The following stages must remain distinct:
+
+**Approval → Isolation Confirmation → Work in Progress → Work Completion → De-Isolation Confirmation → Closure**
+
+The actual transitions and responsible personnel must remain configurable or straightforward to adjust when PCL's approved procedures and authorization matrix are provided.
+
+Do not assume that approval automatically means isolation has been completed.
+
+Do not assume that work completion means de-isolation has been completed.
+
+Do not assume that de-isolation confirmation can be skipped.
+
+Rejected or cancelled certificates must retain their historical records, subject to the existing application’s retention and access-control arrangements.
+
+---
+
+### 8. VALIDATION AND OPERATIONAL SAFETY CONTROLS
+
+Implement appropriate validation at the form and workflow levels.
+
+Minimum requirements:
+
+- Require essential work details before submission.
+- Validate mandatory fields before the applicable workflow stage can be completed.
+- Do not preselect safety verification checkboxes.
+- Do not create automatic signatures.
+- Do not allow approval fields to be treated as completed without the required approval action or recorded approval.
+- Require applicable electrical isolation verification before recording electrical isolation as confirmed.
+- Require work-completion confirmation before proceeding to the de-isolation stage.
+- Require de-isolation confirmation before closing the certificate.
+- Keep all workflow stages separate.
+- Prevent unauthorized modifications to records.
+- Record workflow actions and timestamps where supported.
+- Display clear validation messages.
+- Warn users when unsaved changes may be lost.
+- Handle failed saves and database errors without silently discarding entered data.
+
+Do not invent electrical safety limits, statutory requirements, switching procedures, test criteria, or additional approval requirements not supported by the supplied form or confirmed PCL procedures.
+
+The application is a record-management and workflow tool. It must not replace approved electrical safety procedures, competent-person verification, or authorized switching practices.
+
+---
+
+### 9. RELATIONSHIP WITH THE EXISTING PTW MODULE
+
+Maintain the PTW and Electrical Isolation Certificate as separate document types.
+
+Where feasible, provide an optional field to associate an Electrical Isolation Certificate with an existing PTW.
+
+The field may support:
+
+- Selecting an existing PTW from a searchable list.
+- Displaying the linked PTW number.
+- Opening the linked PTW record, subject to permissions.
+- Searching for certificates associated with a PTW.
+
+Do not make the relationship mandatory until PCL's procedure confirms that it is required.
+
+Do not assume every PTW requires an Electrical Isolation Certificate.
+
+Do not assume every Electrical Isolation Certificate must originate from a PTW.
+
+Do not replace the existing PTW Isolation & LOTOTO section.
+
+Do not automatically approve or close a PTW when an Electrical Isolation Certificate changes status.
+
+Do not automatically close an Electrical Isolation Certificate when a PTW is closed.
+
+Preserve the independence of both workflows and their records.
+
+---
+
+### 10. PRINTING AND PDF GENERATION
+
+Create a professional print layout based on the supplied reference certificate.
+
+Requirements:
+
+- Preserve the section numbering from 1.0 through 6.1.
+- Retain the original declarations and field labels.
+- Keep tables aligned and readable.
+- Maintain sufficient space for signatures.
+- Avoid splitting declarations and signature fields across page boundaries where practical.
+- Repeat table headings when tables continue onto additional pages, where supported.
+- Display the certificate number and relevant work details on subsequent pages.
+- Include all four copy designations.
+- Display the actual saved values in the printed output.
+- Support printing saved certificates.
+- Provide a Print / Generate PDF action from the certificate record.
+- Ensure the output is readable on A4 paper, subject to the reference form's layout.
+- Support additional isolation rows across pages.
+- Hide navigation menus, interactive buttons, and unrelated screen elements from the printed document.
+
+Use the existing application's PDF-generation or printing libraries where suitable.
+
+If no suitable PDF library exists, select an approach compatible with the current architecture.
+
+Do not use a static screenshot of the reference PDF as the form.
+
+The application fields, dropdowns, checkboxes, tables, and signatures must remain editable.
+
+---
+
+### 11. USER INTERFACE AND RESPONSIVE DESIGN
+
+Follow the existing PCL HSE Management System's visual design and navigation.
+
+Use a professional industrial interface with clear headings, readable labels, consistent spacing, and accessible controls.
+
+The module should include:
+
+**A. Document Selection Screen**
+- Permit to Work.
+- Electrical Isolation Certificate.
+
+**B. Certificate Dashboard**
+- Create New Certificate.
+- Search Certificates.
+- View Saved Certificates.
+- Filter by Status.
+- Open Existing Certificate.
+
+**C. Certificate Form**
+- All six numbered sections.
+- Editable tables.
+- Save Draft.
+- Submit for Approval.
+- Appropriate workflow actions.
+- Print / Generate PDF.
+- Return to Certificate List.
+
+**D. Certificate Record View**
+- Certificate number.
+- Work details.
+- Current status.
+- Saved form data.
+- Workflow history, where supported.
+- Linked PTW, where applicable.
+- Print / Generate PDF.
+
+Ensure the form works on:
+
+- Desktop computers.
+- Tablets.
+- Mobile phones.
+
+On mobile devices, allow wide isolation tables to scroll horizontally without losing data or making essential controls inaccessible.
+
+Do not redesign unrelated parts of the application.
+
+---
+
+### 12. AUTHENTICATION AND PERMISSIONS
+
+Reuse the existing PCL authentication system.
+
+Do not create duplicate user accounts or a separate login system.
+
+Apply the existing role-based access controls.
+
+At a minimum, ensure the system respects the following functional distinctions, subject to the roles and permissions already implemented:
+
+- Users who can create certificates.
+- Users who can edit permitted records.
+- Users who can submit certificates.
+- Users authorized to record approval.
+- Competent personnel authorized to record isolation confirmation.
+- Personnel authorized to record work completion.
+- Personnel authorized to record de-isolation confirmation.
+- Users authorized to view, search, or print records.
+
+These are functional categories, not assignments to specific PCL job titles.
+
+Do not invent names, designations, or authorization assignments.
+
+If the existing application does not yet support the required permission distinctions, identify the gap and implement a compatible, configurable approach without disrupting existing access controls.
+
+---
+
+### 13. TECHNICAL IMPLEMENTATION REQUIREMENTS
+
+Implement the enhancement using the existing technology stack.
+
+For example, if the current application uses React and TypeScript, continue using React and TypeScript. If it uses Firebase and Cloud Firestore, reuse those services.
+
+Do not change frameworks unnecessarily.
+
+Follow these implementation principles:
+
+1. Inspect before modifying.
+2. Reuse existing components where appropriate.
+3. Preserve existing routes and navigation.
+4. Add only the components, services, routes, and database structures required.
+5. Avoid duplicate components or conflicting routes.
+6. Maintain backward compatibility with existing PTW records.
+7. Use the existing database and authentication services.
+8. Validate user inputs.
+9. Handle asynchronous database operations and errors correctly.
+10. Provide clear success and failure messages.
+11. Prevent duplicate submissions.
+12. Protect records through the existing permission model.
+13. Avoid exposing credentials or sensitive configuration in frontend code.
+14. Do not overwrite environment variables or Firebase configuration unnecessarily.
+15. Do not delete existing data or database collections.
+16. Keep the implementation maintainable and easy to extend.
+
+If the database requires new collections, tables, indexes, or security rules, implement only the changes necessary for this feature and preserve existing application access.
+
+Do not report a feature as implemented merely because its button or screen is visible. Verify that its underlying functionality works.
+
+---
+
+### 14. TESTING AND ACCEPTANCE CRITERIA
+
+After implementation, test the new module against the following acceptance criteria.
+
+**Document Selection**
+1. The PTW section displays the document-selection screen.
+2. Selecting PTW opens the existing PTW form.
+3. Existing PTW functionality remains operational.
+4. Selecting Electrical Isolation Certificate opens the new certificate module.
+
+**Form Functionality**
+5. All six sections are available and editable.
+6. All required field labels and declarations are present.
+7. Electrical verification checkboxes are initially unchecked.
+8. The electrical isolation register starts with at least five rows.
+9. The other-isolation register starts with at least three rows.
+10. Users can add rows without losing existing data.
+11. Required fields are validated appropriately.
+
+**Database and Records**
+12. Certificate numbers are unique.
+13. Duplicate submissions are prevented or handled safely.
+14. Drafts and submitted records persist in the existing database.
+15. Saved records remain available after refresh, logout, and login.
+16. Authorized users can search and reopen historical certificates.
+17. Record updates and workflow actions are logged where supported.
+
+**Workflow**
+18. Approval authorities are not hardcoded.
+19. A certificate cannot be automatically approved.
+20. Isolation confirmation is separate from approval.
+21. Work completion is separate from de-isolation.
+22. A certificate cannot be closed without the required de-isolation confirmation.
+23. Unauthorized workflow actions are prevented.
+
+**Printing**
+24. Saved values appear correctly in print/PDF output.
+25. All required declarations and signature fields appear.
+26. The certificate number appears on subsequent pages.
+27. All four copy designations are included.
+28. Additional isolation rows print correctly across pages.
+
+**Integration and Compatibility**
+29. The application remains functional on desktop and mobile.
+30. Existing PTW records remain intact.
+31. Other HSE modules remain unaffected.
+32. Existing authentication and permissions remain operational.
+33. Database errors and validation failures are handled appropriately.
+
+Report any failed tests honestly. Do not claim that a test passed unless it was actually performed.
+
+---
+
+### 15. FINAL IMPLEMENTATION REPORT
+
+After development, provide a concise but complete implementation report containing:
+
+**A. Existing Application Review**
+- Architecture and technology stack identified.
+- Existing database and authentication system identified.
+- Existing PTW components reused.
+
+**B. Files Created or Modified**
+- File names and their purposes.
+- Routes or components added.
+- Existing files modified.
+
+**C. Database Changes**
+- New collections, tables, or fields.
+- Numbering implementation.
+- Persistence and security arrangements.
+- Migration steps, if required.
+
+**D. Implemented Features**
+- Document-selection screen.
+- Electrical Isolation Certificate form.
+- Dynamic isolation registers.
+- Workflow and status management.
+- Search and record management.
+- Printing and PDF generation.
+- Optional PTW association.
+
+**E. Testing Results**
+- Tests performed.
+- Pass/fail results.
+- Any tests not performed.
+- Any outstanding defects.
+
+**F. Deployment Requirements**
+- Required configuration.
+- Database or security-rule updates.
+- Required environment variables.
+- Deployment steps.
+- Any remaining work requiring PCL input.
+
+Do not claim deployment, successful database integration, or production readiness unless the relevant steps have actually been completed and verified.
+
+---
+
+### 16. DEVELOPMENT EXECUTION INSTRUCTIONS
+
+Execute the work in this order:
+
+**Phase 1 — Inspect**
+Review the existing PCL application, PTW module, database, authentication, permissions, and supplied reference PDF.
+
+**Phase 2 — Plan**
+Identify the smallest set of changes required to integrate the new certificate without disrupting the existing system.
+
+**Phase 3 — Implement**
+Create the document-selection screen, new certificate form, database integration, record management, workflow controls, and print/PDF functionality.
+
+**Phase 4 — Integrate**
+Connect the new module to the existing navigation and authentication system while preserving the PTW module and unrelated functionality.
+
+**Phase 5 — Test**
+Run the acceptance tests and correct any defects found.
+
+**Phase 6 — Report**
+Provide the implementation report and identify outstanding items.
+
+Do not stop after producing a design, mock-up, demonstration screen, or static frontend.
+
+Implement the working functionality supported by the available project and tools.
+
+If a required feature cannot be completed because the development environment lacks the necessary files, backend access, permissions, or reference material, explain the limitation and identify precisely what is needed.
+
+Do not silently substitute mock data for persistent operational records.
+
+### FINAL PRIORITY
+
+Deliver a functional, editable Electrical Isolation Certificate integrated into the existing Power Cement Limited HSE Management System.
+
+The final solution must preserve the existing PTW module, maintain persistent certificate records, support the complete isolation-to-de-isolation workflow, provide professional printing/PDF output, and leave approval-authority assignments configurable for subsequent confirmation by PCL.
+
+**Begin by inspecting the existing application and supplied reference form. Then implement the enhancement directly in the existing project.**
+
+### Before loading the prompt into Google AI Studio
+
+For the best result, I recommend these three steps:
+
+1. **Open the existing PCL HSE application project.** Give Google AI Studio access to the current source code and backend configuration. The prompt is designed to enhance the existing application, not build a replacement.
+
+2. **Upload `Electrical_Isolation_Certificate_Blank.pdf`.** This lets the system reproduce the actual certificate structure, declarations, signature areas, and copy designations instead of guessing its layout.
+
+3. **Verify database connectivity.** If PCL's application uses Firebase/Cloud Firestore, ensure the existing Firebase project is accessible. The new certificate records must persist in the database rather than existing only in the browser.
+
+**Important:** The prompt deliberately leaves PCL's approval-authority matrix configurable. Before using the module operationally, PCL should confirm the authorized personnel, electrical isolation procedure, approval stages, and de-isolation responsibilities.
+
+This version is ready to copy into Google AI Studio.

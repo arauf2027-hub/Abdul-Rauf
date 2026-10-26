@@ -11,21 +11,26 @@ declare global {
   var _ehsDbInitialized: boolean;
 }
 
-const dataDir = path.resolve(process.cwd(), 'data', 'pgdata');
+const dataDir = path.resolve(process.cwd(), 'data', 'appdata');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
-} else if (!global._ehsClientInstance) {
-  const pidFile = path.resolve(dataDir, 'postmaster.pid');
-  if (fs.existsSync(pidFile)) {
-    try {
-      fs.unlinkSync(pidFile);
-    } catch {}
+}
+
+function createClient(): PGlite {
+  if (global._ehsClientInstance) return global._ehsClientInstance;
+  try {
+    const cl = new PGlite(dataDir);
+    global._ehsClientInstance = cl;
+    return cl;
+  } catch (err) {
+    console.warn('[EHS DB] Could not open dataDir, falling back to memory instance:', err);
+    const cl = new PGlite();
+    global._ehsClientInstance = cl;
+    return cl;
   }
 }
 
-export const client: PGlite = global._ehsClientInstance || new PGlite(dataDir);
-global._ehsClientInstance = client;
-
+export const client: PGlite = createClient();
 export const db = global._ehsDbInstance || drizzle(client, { schema });
 global._ehsDbInstance = db;
 
@@ -40,7 +45,9 @@ export async function initializeDatabase() {
     const { seedDatabaseIfEmpty, seedPtwIfEmpty, seedEicIfEmpty } = await import('./seed.ts');
     await seedDatabaseIfEmpty();
     await seedPtwIfEmpty();
-    await seedEicIfEmpty();
+    if (seedEicIfEmpty) {
+      await seedEicIfEmpty();
+    }
 
     // Synchronize PostgreSQL sequences with existing IDs
     const tablesWithSerial = [

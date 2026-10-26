@@ -497,19 +497,23 @@ export interface PtwPermit {
   extensions?: PtwExtension[];
 }
 
+// -------------------------------------------------------------
+// ELECTRICAL ISOLATION CERTIFICATE (EIC) TYPES
+// -------------------------------------------------------------
 export type EicStatus =
   | 'Draft'
   | 'Submitted for Approval'
   | 'Approved'
-  | 'Approved / Authorized'
   | 'Isolation Confirmed'
   | 'Work in Progress'
   | 'Work Completed'
   | 'De-isolation Confirmed'
-  | 'Cancelled';
+  | 'Closed'
+  | 'Cancelled'
+  | 'Rejected';
 
 export interface ElectricalIsolationPoint {
-  id?: string;
+  id: string;
   location: string;
   breakerNo: string;
   action: 'Open' | 'Lock' | '';
@@ -518,12 +522,12 @@ export interface ElectricalIsolationPoint {
 }
 
 export interface OtherIsolationPoint {
-  id?: string;
+  id: string;
   controlMechanism: string;
   location: string;
-  inletOutletDrain: 'I' | 'O' | 'D' | '';
-  blanked: 'Yes' | 'No' | '';
-  valves: 'Open' | 'Closed' | '';
+  inletOutletDrain: 'Inlet' | 'Outlet' | 'Drain' | 'I' | 'O' | 'D' | '';
+  linesBlanked: 'Yes' | 'No' | '';
+  valvesStatus: 'Open' | 'Closed' | '';
   padlockNo: string;
   taggedOut: 'Yes' | 'No' | '';
 }
@@ -531,86 +535,83 @@ export interface OtherIsolationPoint {
 export interface ElectricalIsolationCertificate {
   id: number;
   certificateNumber: string;
-  ptwId?: number | null;
-  ptwNumber?: string;
   status: EicStatus;
-  locationId?: number | null;
-  departmentId?: number | null;
-
-  // 1.0 Work Details
+  linkedPtwId?: number | null;
+  linkedPtwNumber?: string;
   workLocation: string;
-  requestDate: string;
-  requestTime: string;
+  locationId?: number | null;
   equipmentToIsolate: string;
-  equipmentTag?: string;
+  date: string;
+  time: string;
   workDescription: string;
-
-  // 2.0 Isolation Requisition
+  requestorUserId?: number | null;
   requestorName: string;
-  requestorDesignation: string;
+  requestorDesignation?: string;
   requestorSignature?: string;
-  requestorSignatureDate?: string | null;
-  approvedByName?: string;
-  approvedByDesignation?: string;
-  approvedBySignature?: string;
-  approvedByDate?: string | null;
-
-  // 3.0 Details of Electrical Isolation
-  // 3.1 Verification checkboxes
+  requestorDate?: string;
+  approverUserId?: number | null;
+  approverName?: string;
+  approverDesignation?: string;
+  approverSignature?: string;
+  approvedAt?: string | null;
+  approvalRemarks?: string;
   fusesRemoved: boolean;
   mainSwitchedOff: boolean;
   rackedOut: boolean;
   padlocksFitted: boolean;
   tagsFitted: boolean;
-  // 3.2 Electrical Isolation Point Register
-  electricalPoints: ElectricalIsolationPoint[];
-  // 3.3 Confirmation by Competent Person
-  electricalCompetentName?: string;
-  electricalCompetentDesignation?: string;
-  electricalCompetentSignature?: string;
-  electricalOperatorSignature?: string;
-  electricalIsolationDate?: string | null;
-
-  // 4.0 Other Types of Isolation
-  otherPoints: OtherIsolationPoint[];
-  // 4.2 Isolation Confirmation
-  otherCompetentName?: string;
-  otherCompetentDesignation?: string;
-  otherCompetentSignature?: string;
-  otherIsolationDate?: string;
-  otherIsolationTime?: string;
-
-  // 5.0 Completion of the Work
-  // 5.1 Work Completion Declaration
-  workCompletionPerson?: string;
-  workCompletionSignature?: string;
+  isolationVerifiedAt?: string | null;
+  isolationVerifiedByUserId?: number | null;
+  isolationPoints: ElectricalIsolationPoint[];
+  competentPersonName?: string;
+  competentPersonDesignation?: string;
+  operatorSignature?: string;
+  competentPersonSignature?: string;
+  competentPersonConfirmedAt?: string | null;
+  otherIsolations: OtherIsolationPoint[];
+  otherCompetentPersonName?: string;
+  otherCompetentPersonDesignation?: string;
+  otherCompetentPersonSignature?: string;
+  otherConfirmationDate?: string;
+  otherConfirmationTime?: string;
+  otherConfirmedAt?: string | null;
+  workPersonInChargeName?: string;
+  workPersonInChargeSignature?: string;
   workCompletionDate?: string;
   workCompletionTime?: string;
-  // 5.2 Completion Approval
-  completionApprovedByName?: string;
-  completionApprovedByDesignation?: string;
-  completionApprovedBySignature?: string;
-  completionApprovedByDate?: string | null;
-
-  // 6.0 Confirmation of De-Isolation
-  // 6.1 De-Isolation Declaration
+  workCompletedAt?: string | null;
+  completionApproverName?: string;
+  completionApproverDesignation?: string;
+  completionApproverSignature?: string;
+  completionApprovedAt?: string | null;
   deIsolationName?: string;
   deIsolationDesignation?: string;
   deIsolationSignature?: string;
   deIsolationDate?: string;
   deIsolationTime?: string;
-  ccrOperatorSignature?: string;
-  ccrOperatorDate?: string | null;
-
+  ccrOperatorSignatures?: string;
+  deIsolationConfirmedAt?: string | null;
+  closedAt?: string | null;
+  closedByUserId?: number | null;
   cancellationReason?: string;
-  createdById?: number | null;
   createdAt: string;
   updatedAt: string;
-
   // Joins
   location?: Location;
-  department?: Department;
-  createdBy?: User;
-  ptw?: PtwPermit;
+  requestor?: User;
+  approver?: User;
+  linkedPtw?: PtwPermit;
+}
+
+export interface EicSummary {
+  total: number;
+  draft: number;
+  submitted: number;
+  approved: number;
+  isolationConfirmed: number;
+  workInProgress: number;
+  workCompleted: number;
+  closed: number;
+  cancelled: number;
 }
 

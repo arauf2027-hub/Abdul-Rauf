@@ -1,4 +1,4 @@
-import { ActionItem, AuditEventItem, Department, DocumentItem, ElectricalIsolationCertificate, EmergencyDrill, EventItem, HazardReport, IncidentReport, InspectionEvent, Location, Meeting, NotificationItem, Organization, PtwExtension, PtwPermit, TrainingSession, User } from '../types/index.ts';
+import { ActionItem, AuditEventItem, Department, DocumentItem, ElectricalIsolationCertificate, EicSummary, EmergencyDrill, EventItem, HazardReport, IncidentReport, InspectionEvent, Location, Meeting, NotificationItem, Organization, PtwExtension, PtwPermit, TrainingSession, User } from '../types/index.ts';
 
 let simulatedUserId: number | null = null;
 let currentToken: string | null = null;
@@ -443,70 +443,28 @@ export const api = {
       body: JSON.stringify({ reason }),
     }),
 
-  // Electrical Isolation Certificate (EIC) Module
-  getIsolationCertificates: (params?: Record<string, string>) => {
-    const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-    return request<ElectricalIsolationCertificate[]>(`/api/isolation-certificates${qs}`);
+  // Electrical Isolation Certificate (EIC) endpoints
+  getElectricalCertificates: (params?: Record<string, string>) => {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return request<ElectricalIsolationCertificate[]>(`/api/ptw/eic${query}`);
   },
-  getIsolationCertificate: (id: string | number) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}`),
-  getIsolationCertificateSummary: () =>
-    request<{
-      total: number;
-      draft: number;
-      submitted: number;
-      approved: number;
-      isolationConfirmed: number;
-      workInProgress: number;
-      workCompleted: number;
-      deIsolated: number;
-      cancelled: number;
-      active: number;
-    }>('/api/isolation-certificates/summary'),
-  createIsolationCertificate: (data: any) =>
-    request<ElectricalIsolationCertificate>('/api/isolation-certificates', {
+  getElectricalCertificate: (id: string | number) =>
+    request<ElectricalIsolationCertificate>(`/api/ptw/eic/${id}`),
+  getElectricalCertificateSummary: () =>
+    request<EicSummary>(`/api/ptw/eic/summary`),
+  createElectricalCertificate: (data: Partial<ElectricalIsolationCertificate>) =>
+    request<ElectricalIsolationCertificate>('/api/ptw/eic', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  updateIsolationCertificate: (id: string | number, data: any) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}`, {
+  updateElectricalCertificate: (id: string | number, data: Partial<ElectricalIsolationCertificate>) =>
+    request<ElectricalIsolationCertificate>(`/api/ptw/eic/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  submitIsolationCertificate: (id: string | number) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/submit`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }),
-  approveIsolationCertificate: (id: string | number, data: { approvedByName: string; approvedByDesignation?: string; approvedBySignature?: string }) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/approve`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  confirmIsolation: (id: string | number, data: any) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/confirm-isolation`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  startIsolationWork: (id: string | number) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/start-work`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }),
-  completeIsolationWork: (id: string | number, data: { workCompletionPerson: string; workCompletionSignature?: string; workCompletionDate?: string; workCompletionTime?: string; completionApprovedByName?: string; completionApprovedByDesignation?: string; completionApprovedBySignature?: string }) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/complete-work`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  confirmDeisolation: (id: string | number, data: { deIsolationName: string; deIsolationDesignation?: string; deIsolationSignature?: string; deIsolationDate?: string; deIsolationTime?: string; ccrOperatorSignature?: string }) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/confirm-deisolation`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-  cancelIsolationCertificate: (id: string | number, cancellationReason: string) =>
-    request<ElectricalIsolationCertificate>(`/api/isolation-certificates/${id}/cancel`, {
-      method: 'POST',
-      body: JSON.stringify({ cancellationReason }),
+  deleteElectricalCertificate: (id: string | number) =>
+    request<{ success: boolean; message: string }>(`/api/ptw/eic/${id}`, {
+      method: 'DELETE',
     }),
 };
 
