@@ -454,6 +454,80 @@ export const ptwExtensions = pgTable('ptw_extensions', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// 25. Electrical Isolation Certificates (EIC)
+export const electricalIsolationCertificates = pgTable('electrical_isolation_certificates', {
+  id: serial('id').primaryKey(),
+  certificateNumber: text('certificate_number').notNull().unique(),
+  ptwId: integer('ptw_id').references(() => ptwPermits.id),
+  ptwNumber: text('ptw_number').default(''),
+  status: text('status').notNull().default('Draft'),
+  locationId: integer('location_id').references(() => locations.id),
+  departmentId: integer('department_id').references(() => departments.id),
+
+  // 1.0 Work Details
+  workLocation: text('work_location').notNull(),
+  requestDate: text('request_date').notNull(),
+  requestTime: text('request_time').notNull(),
+  equipmentToIsolate: text('equipment_to_isolate').notNull(),
+  equipmentTag: text('equipment_tag').default(''),
+  workDescription: text('work_description').notNull(),
+
+  // 2.0 Isolation Requisition
+  requestorName: text('requestor_name').notNull(),
+  requestorDesignation: text('requestor_designation').default(''),
+  requestorSignature: text('requestor_signature').default(''),
+  requestorSignatureDate: timestamp('requestor_signature_date'),
+  approvedByName: text('approved_by_name').default(''),
+  approvedByDesignation: text('approved_by_designation').default(''),
+  approvedBySignature: text('approved_by_signature').default(''),
+  approvedByDate: timestamp('approved_by_date'),
+
+  // 3.0 Details of Electrical Isolation
+  fusesRemoved: boolean('fuses_removed').notNull().default(false),
+  mainSwitchedOff: boolean('main_switched_off').notNull().default(false),
+  rackedOut: boolean('racked_out').notNull().default(false),
+  padlocksFitted: boolean('padlocks_fitted').notNull().default(false),
+  tagsFitted: boolean('tags_fitted').notNull().default(false),
+  electricalPoints: text('electrical_points').notNull().default('[]'),
+  electricalCompetentName: text('electrical_competent_name').default(''),
+  electricalCompetentDesignation: text('electrical_competent_designation').default(''),
+  electricalCompetentSignature: text('electrical_competent_signature').default(''),
+  electricalOperatorSignature: text('electrical_operator_signature').default(''),
+  electricalIsolationDate: timestamp('electrical_isolation_date'),
+
+  // 4.0 Other Types of Isolation
+  otherPoints: text('other_points').notNull().default('[]'),
+  otherCompetentName: text('other_competent_name').default(''),
+  otherCompetentDesignation: text('other_competent_designation').default(''),
+  otherCompetentSignature: text('other_competent_signature').default(''),
+  otherIsolationDate: text('other_isolation_date').default(''),
+  otherIsolationTime: text('other_isolation_time').default(''),
+
+  // 5.0 Completion of the Work
+  workCompletionPerson: text('work_completion_person').default(''),
+  workCompletionSignature: text('work_completion_signature').default(''),
+  workCompletionDate: text('work_completion_date').default(''),
+  workCompletionTime: text('work_completion_time').default(''),
+  completionApprovedByName: text('completion_approved_by_name').default(''),
+  completionApprovedByDesignation: text('completion_approved_by_designation').default(''),
+  completionApprovedBySignature: text('completion_approved_by_signature').default(''),
+  completionApprovedByDate: timestamp('completion_approved_by_date'),
+
+  // 6.0 Confirmation of De-Isolation
+  deIsolationName: text('de_isolation_name').default(''),
+  deIsolationDesignation: text('de_isolation_designation').default(''),
+  deIsolationSignature: text('de_isolation_signature').default(''),
+  deIsolationDate: text('de_isolation_date').default(''),
+  deIsolationTime: text('de_isolation_time').default(''),
+  ccrOperatorSignature: text('ccr_operator_signature').default(''),
+  ccrOperatorDate: timestamp('ccr_operator_date'),
+
+  cancellationReason: text('cancellation_reason').default(''),
+  createdById: integer('created_by_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   department: one(departments, {
@@ -708,3 +782,26 @@ export const ptwExtensionsRelations = relations(ptwExtensions, ({ one }) => ({
     references: [ptwPermits.id],
   }),
 }));
+
+export const electricalIsolationCertificatesRelations = relations(
+  electricalIsolationCertificates,
+  ({ one }) => ({
+    location: one(locations, {
+      fields: [electricalIsolationCertificates.locationId],
+      references: [locations.id],
+    }),
+    department: one(departments, {
+      fields: [electricalIsolationCertificates.departmentId],
+      references: [departments.id],
+    }),
+    createdBy: one(users, {
+      fields: [electricalIsolationCertificates.createdById],
+      references: [users.id],
+    }),
+    ptw: one(ptwPermits, {
+      fields: [electricalIsolationCertificates.ptwId],
+      references: [ptwPermits.id],
+    }),
+  })
+);
+

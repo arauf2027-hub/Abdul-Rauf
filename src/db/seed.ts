@@ -271,3 +271,65 @@ export async function seedPtwIfEmpty() {
   }
 }
 
+export async function seedEicIfEmpty() {
+  try {
+    const existing = await db.query.electricalIsolationCertificates.findFirst();
+    if (existing) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    await db.insert(schema.electricalIsolationCertificates).values({
+      certificateNumber: 'EIC-2026-000001',
+      ptwNumber: 'PTW-2026-000001',
+      status: 'Isolation Confirmed',
+      locationId: 1,
+      departmentId: 2,
+      workLocation: 'Raw Mill Feed Circuit - Electrical Substation 02',
+      requestDate: today,
+      requestTime: '08:00',
+      equipmentToIsolate: 'Raw Mill Main Drive Motor 412-M-01',
+      equipmentTag: '412-M-01',
+      workDescription: 'Preventive maintenance and replacement of motor drive couplings and stator winding inspection.',
+      requestorName: 'Tariq Mahmood',
+      requestorDesignation: 'Mechanical Lead Engineer',
+      requestorSignature: 'T. Mahmood',
+      requestorSignatureDate: new Date(),
+      approvedByName: 'Engr. Kamran Ahmed',
+      approvedByDesignation: 'Electrical Section In-Charge',
+      approvedBySignature: 'K. Ahmed (Approved)',
+      approvedByDate: new Date(),
+      fusesRemoved: true,
+      mainSwitchedOff: true,
+      rackedOut: true,
+      padlocksFitted: true,
+      tagsFitted: true,
+      electricalPoints: JSON.stringify([
+        { id: '1', location: 'Substation-02 Switchgear Room', breakerNo: 'VCB-412-01 (6.6 kV)', action: 'Lock', padlockNo: 'PCL-EL-091', tagOut: 'Yes' },
+        { id: '2', location: 'Substation-02 MCC Room', breakerNo: 'MCC-412-LUBE', action: 'Lock', padlockNo: 'PCL-EL-092', tagOut: 'Yes' },
+        { id: '3', location: 'Substation-02 MCC Room', breakerNo: 'MCC-412-FAN', action: 'Lock', padlockNo: 'PCL-EL-093', tagOut: 'Yes' },
+        { id: '4', location: 'Local Field Emergency Stop', breakerNo: 'LCS-412-M01', action: 'Open', padlockNo: 'PCL-EL-094', tagOut: 'Yes' },
+        { id: '5', location: 'Control Cabinet PLC-04', breakerNo: 'MCB-24V-DC', action: 'Open', padlockNo: 'PCL-EL-095', tagOut: 'Yes' },
+      ]),
+      electricalCompetentName: 'Muhammad Aslam',
+      electricalCompetentDesignation: 'Senior Electrical Specialist',
+      electricalCompetentSignature: 'M. Aslam (Certified)',
+      electricalOperatorSignature: 'CCR Shift Operator (Confirmed)',
+      electricalIsolationDate: new Date(),
+      otherPoints: JSON.stringify([
+        { id: '1', controlMechanism: 'Hydraulic High-Pressure Lube Supply', location: 'Raw Mill Hydraulic Room', inletOutletDrain: 'I', blanked: 'No', valves: 'Closed', padlockNo: 'PCL-ME-041', taggedOut: 'Yes' },
+        { id: '2', controlMechanism: 'Hydraulic Return Line', location: 'Raw Mill Hydraulic Room', inletOutletDrain: 'O', blanked: 'No', valves: 'Closed', padlockNo: 'PCL-ME-042', taggedOut: 'Yes' },
+        { id: '3', controlMechanism: 'Mill Housing Purge Air Line', location: 'Raw Mill Manifold', inletOutletDrain: 'I', blanked: 'Yes', valves: 'Closed', padlockNo: 'PCL-ME-043', taggedOut: 'Yes' },
+      ]),
+      otherCompetentName: 'Khurram Shahzad',
+      otherCompetentDesignation: 'Mechanical Specialist',
+      otherCompetentSignature: 'K. Shahzad (Verified)',
+      otherIsolationDate: today,
+      otherIsolationTime: '08:45',
+    });
+
+    console.log('[EHS DB] Initial Electrical Isolation Certificate seeded successfully.');
+  } catch (err) {
+    console.error('[EHS DB] EIC seeding error (non-fatal):', err);
+  }
+}
+
+

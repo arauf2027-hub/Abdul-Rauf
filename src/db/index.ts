@@ -37,9 +37,10 @@ export async function initializeDatabase() {
     try {
       await client.exec(`ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';`);
     } catch {}
-    const { seedDatabaseIfEmpty, seedPtwIfEmpty } = await import('./seed.ts');
+    const { seedDatabaseIfEmpty, seedPtwIfEmpty, seedEicIfEmpty } = await import('./seed.ts');
     await seedDatabaseIfEmpty();
     await seedPtwIfEmpty();
+    await seedEicIfEmpty();
 
     // Synchronize PostgreSQL sequences with existing IDs
     const tablesWithSerial = [
@@ -66,6 +67,7 @@ export async function initializeDatabase() {
       'audit_events',
       'ptw_permits',
       'ptw_extensions',
+      'electrical_isolation_certificates',
     ];
 
     for (const t of tablesWithSerial) {
